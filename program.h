@@ -16,7 +16,7 @@ struct status{
 
 class Program{
 private:
-    std::unordered_map<std::string,int> mem;
+    Memory mem;
     status* stat;
 
     std::map<int,Statement*> prog;//store
@@ -24,14 +24,17 @@ private:
 
     std::string result_buf,tree_buf;
 
+    void reset_program();
+
 public:
     Program(){}
     ~Program();
     int load_into_prog(QList<Line> buffer);//return args nums
-    void run(std::list<int> args_value);
+    void run(std::list<CompVal> args_value);
+    void mem_add_prog(std::string var,CompVal val);
     std::string get_result_buf(){return result_buf;}
     std::string get_tree_buf(){return tree_buf;}
-    void clear_program(){prog.clear();}
+    void clear_program();
 
 
 };

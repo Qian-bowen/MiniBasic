@@ -9,31 +9,19 @@
 
 #include<QDebug>
 #include "handle.h"
-#include<math.h>
-
-enum ExpressionType { OPERATOR,CONSTANT, IDENTIFIER, COMPOUND ,VIRTUAL};
-
-struct node{
-    ExpressionType type;
-    char op;//n means no op
-    int value;
-    std::string content;
-    node* left,*right;
-
-    node():op('n'),left(NULL),right(NULL){}
-    node(ExpressionType t,char o ,node* l,node* r):
-        type(t),op(o),left(l),right(r){}
-};
+#include "error.h"
+#include "memory.h"
+#include "expressionNode.h"
 
 class Parser{
 private:
     node* root;
     std::stack<node*> optor,operands;
-    std::unordered_map<std::string,int>* mem;
+    Memory* mem;
 
     void calculate_two_op();
 
-    void eval_tree(node* root,int& val,bool& succ);
+    void eval_tree(node* root,CompVal& val,bool& succ);
     void parse_line(std::string exp_str);
 
     std::string space_create(int level);
@@ -41,10 +29,10 @@ private:
     std::string print_node(node* cur,int level);
 
 public:
-    Parser(std::unordered_map<std::string,int>* m):mem(m){root=new node;}
+    Parser(Memory* m):mem(m){root=new node;}
     void parse_line_wrapper(std::string exp_str);//handle exception
 
-    bool eval(int& val);
+    bool eval(CompVal& val);
     std::string get_syntax_tree();
 
 };

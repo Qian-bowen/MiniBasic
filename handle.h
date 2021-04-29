@@ -1,9 +1,10 @@
 #ifndef HANDLE_H
 #define HANDLE_H
-#include<string>
-#include<string.h>
-#include<iostream>//test
-#include<stdlib.h>
+#include <string>
+#include <string.h>
+#include <iostream>//test
+#include <stdlib.h>
+
 
 #define IS_BLANK(s) ((*s)==' '||(*s)=='\t')
 #define IS_DIGIT(s) ((*s)>='0'&&(*s)<='9')
@@ -22,13 +23,14 @@
 #define IS_LARGER(a,b) (a>b)
 #define IS_EQUAL(a,b) (a==b)
 
+#define IS_STR_DELIM(s) ((*s)=='\''||(*s)=='"')
+#define IS_DELIM_MATCH(a,b) (((*a=='\'')&&(*b=='\''))||((*a=='"') && (*b=='"')))
+
 //if precedence of a is higher or equal then b,return true
 //handle power in parse_line
 #define IS_PRECE_HIGH_EQU(a,b) (((a=='*'||a=='/')&&(b=='+'||b=='-')) \
     ||((a=='+'||a=='-')&&(b=='+'||b=='-')) \
     ||((a=='*'||a=='/')&&(b=='*'||b=='/')))
-//||((a=='*'||a=='/')&&(b=='='))
-//||((a=='+'||a=='-')&&(b=='='))
 
 //whether s contain a prefex THEN
 #define IS_KEY_THEN(s) ((*s)=='T'&&(*(s+1))=='H'&&(*(s+2))=='E'&&(*(s+3))=='N')
@@ -39,8 +41,8 @@ bool parse_digit(char*& str,int&val);
 bool parse_op(char*& str,char& op);
 bool parse_cmp_op(char*& str,char& op);
 bool parse_exp(char*& str,char*& exp);
+bool parse_string(char*& str,char*& str_after);
 bool str_to_ptr(std::string src,char*& dest);
-
 
 
 #endif // HANDLE_H

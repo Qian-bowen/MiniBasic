@@ -19,3 +19,7 @@
 * 未定义变量：UNDEFINED VAR
 * 不合法表达式：INVALID EXPRESSION
 * 不合法地址：INVALID GOTO ADDRESS
+
+
+
+todo:支持整形、浮点型加减法，支持字符串加法

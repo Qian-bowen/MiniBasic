@@ -12,7 +12,7 @@ void Statement::get_status(bool& cc,int& pc)
     pc=stmt_pc;
 }
 
-LetStmt::LetStmt(std::string stmt,std::unordered_map<std::string,int>* m,StatementType t)
+LetStmt::LetStmt(std::string stmt,Memory* m,StatementType t)
     :Statement(stmt,m,t)
 {
     //init parser
@@ -36,20 +36,25 @@ LetStmt::~LetStmt()
 }
 
 
-int LetStmt::get_stmt_eval()
+CompVal LetStmt::get_stmt_eval()
 {
-    int val;
+    CompVal val;
     exp->eval(val);
+
+    std::string lv(left_var);
+
     //save to mem ,if var exists just change the value
-    auto search=mem->find(std::string(left_var));
-    if(search!=mem->end())
+    if(!mem->mem_search(lv,V_INT)&&
+            !mem->mem_search(lv,V_STR))
     {
-        search->second=val;
+        mem->mem_add(lv,val);
     }
     else
     {
-        mem->insert(std::pair<std::string,int>(std::string(left_var),val));
+        mem->mem_replace(lv,val);
     }
+
+
     return val;
 }
 
@@ -58,7 +63,7 @@ std::string LetStmt::get_stmt_tree()
     return "LET = \n"+std::string(left_var)+"\n" +exp->get_syntax_tree();
 }
 
-PrintStmt::PrintStmt(std::string stmt,std::unordered_map<std::string,int>* m,StatementType t)
+PrintStmt::PrintStmt(std::string stmt,Memory* m,StatementType t)
     :Statement(stmt,m,t)
 {
     //init parser
@@ -73,9 +78,9 @@ PrintStmt::PrintStmt(std::string stmt,std::unordered_map<std::string,int>* m,Sta
     //exp->print_syntax_tree();
 }
 
-int PrintStmt::get_stmt_eval()
+CompVal PrintStmt::get_stmt_eval()
 {
-    int val;
+    CompVal val;
     exp->eval(val);
     print_val=val;
     return val;
@@ -91,12 +96,12 @@ std::string PrintStmt::get_stmt_tree()
     return "PRINT = \n"+exp->get_syntax_tree();
 }
 
-RemStmt::RemStmt(std::string stmt,std::unordered_map<std::string,int>* m,StatementType t)
+RemStmt::RemStmt(std::string stmt,Memory* m,StatementType t)
     :Statement(stmt,m,t){}
 
 RemStmt::~RemStmt(){}
 
-IfStmt::IfStmt(std::string stmt,std::unordered_map<std::string,int>* m,StatementType t)
+IfStmt::IfStmt(std::string stmt,Memory* m,StatementType t)
     :Statement(stmt,m,t)
 {
     //init parser
@@ -131,9 +136,9 @@ IfStmt::~IfStmt()
     delete exp2;
 }
 
-int IfStmt::get_stmt_eval()
+CompVal IfStmt::get_stmt_eval()
 {
-    int val1,val2;
+    CompVal val1,val2;
     exp1->eval(val1);
     exp2->eval(val2);
 
@@ -156,12 +161,11 @@ std::string IfStmt::get_stmt_tree()
             +op+'\n'+exp2->get_syntax_tree()+std::to_string(stmt_pc)+'\n';
 }
 
-GotoStmt::GotoStmt(std::string stmt,std::unordered_map<std::string,int>* m,StatementType t)
+GotoStmt::GotoStmt(std::string stmt,Memory* m,StatementType t)
 :Statement(stmt,m,t)
 {
     char* str;
     str_to_ptr(stmt,str);
-    std::cout<<str<<std::endl;
 
     int to_direc;
     parse_digit(str,to_direc);
@@ -176,12 +180,12 @@ std::string GotoStmt::get_stmt_tree()
     return "GOTO \n"+std::to_string(stmt_pc)+'\n';
 }
 
-EndStmt::EndStmt(std::string stmt,std::unordered_map<std::string,int>* m,StatementType t)
+EndStmt::EndStmt(std::string stmt,Memory* m,StatementType t)
 :Statement(stmt,m,t){}
 
 EndStmt::~EndStmt(){};
 
-InputStmt::InputStmt(std::string stmt,std::unordered_map<std::string,int>* m,StatementType t)
+InputStmt::InputStmt(std::string stmt,Memory* m,StatementType t)
 :Statement(stmt,m,t)
 {
     char* str;
@@ -195,6 +199,21 @@ void InputStmt::get_var_name(char*& v)
 }
 
 InputStmt::~InputStmt(){};
+
+InputsStmt::InputsStmt(std::string stmt,Memory* m,StatementType t)
+:Statement(stmt,m,t)
+{
+    char* str;
+    str_to_ptr(stmt,str);
+    parse_symbol(str,var_name);
+}
+
+void InputsStmt::get_var_name(char*& v)
+{
+    v=var_name;
+}
+
+InputsStmt::~InputsStmt(){};
 
 
 

@@ -10,46 +10,58 @@ void Parser::calculate_two_op()
     node* left_op=operands.top();
     operands.pop();
 
-
     op->left=left_op;
     op->right=right_op;
 
     operands.push(op);
 }
 
-void Parser::eval_tree(node* root,int& val,bool& succ)
+void Parser::eval_tree(node* root,CompVal& val,bool& succ)
 {
     if(root==NULL) return;
 
-    if(root->type==CONSTANT||root->type==VIRTUAL)
+    if(root->type==CONSTANT||root->type==VIRTUAL||root->type==STRING)
     {
-        std::cout<<"value:"<<root->value<<std::endl;
+        //std::cout<<"value:"<<root->value<<std::endl;
         val=root->value;
         return;
     }
+
     if(root->type==IDENTIFIER)
     {
-        auto search=mem->find(root->content);
-        if(search!=mem->end())
+        if(mem->mem_search(root->content,V_INT))
         {
-            root->value=search->second;
-            val=search->second;
+            val=mem->mem_get(root->content,V_INT);
+            return;
+        }
+        else if(mem->mem_search(root->content,V_STR))
+        {
+            val=mem->mem_get(root->content,V_STR);
             return;
         }
         else
         {
-            throw("UNDEFINED VAR");
+            succ=false;
+            ErrorHandler::throwMsg(E_UDEF_VAR);
         }
-        succ=false;
         return;
     }
 
     //compound
     char op=root->op;
-    int left_val,right_val;
+    CompVal left_val,right_val;
 
     eval_tree(root->left,left_val,succ);
     eval_tree(root->right,right_val,succ);
+
+    //if two types not match, the operation is invalid
+    //if two types contain string, the operation is invalid
+    if(left_val.get_type()!=right_val.get_type()||
+            left_val.get_type()==V_STR||
+            right_val.get_type()==V_STR)
+    {
+        ErrorHandler::throwMsg(E_TYPE_INCOMP);
+    }
 
     if(op=='+')
     {
@@ -65,12 +77,13 @@ void Parser::eval_tree(node* root,int& val,bool& succ)
     }
     else if(op=='/')
     {
-        if(right_val==0) throw("DIVIDE BY ZERO");
+        CompVal zero(0);
+        if(right_val==zero) ErrorHandler::throwMsg(E_ZERO);
         val=left_val/right_val;
     }
     else if(op=='^')
     {
-        val=pow(left_val,right_val);
+        val=left_val^right_val;
     }
     else
     {
@@ -83,14 +96,12 @@ void Parser::eval_tree(node* root,int& val,bool& succ)
     return;
 }
 
-bool Parser::eval(int& val)
+bool Parser::eval(CompVal& val)
 {
     bool succ=true;
-    int exp_val;
-    eval_tree(root,exp_val,succ);
+    eval_tree(root,val,succ);
     if(succ)
     {
-        val=exp_val;
         return true;
     }
     return false;
@@ -109,8 +120,8 @@ void Parser::parse_line(std::string exp_str)
     {
         node* vir_node=new node();
         vir_node->type=VIRTUAL;
-        vir_node->value=0;
-        operands.push( vir_node);
+        vir_node->value=CompVal(0);
+        operands.push(vir_node);
     }
 
 
@@ -125,7 +136,7 @@ void Parser::parse_line(std::string exp_str)
             int val;
             parse_digit(str,val);
             n->type=CONSTANT;
-            n->value=val;
+            n->value=CompVal(val);
             operands.push(n);
             continue;
         }
@@ -133,11 +144,19 @@ void Parser::parse_line(std::string exp_str)
         {
             char* var;
             parse_symbol(str,var);
-
             n->type=IDENTIFIER;
             n->content=std::string(var);
             operands.push(n);
-
+            continue;
+        }
+        if(IS_STR_DELIM(str))
+        {
+            char* row_str;
+            parse_string(str,row_str);
+            n->type=STRING;
+            n->value=std::string(row_str);
+            std::cout<<"row_str:"<<std::string(row_str)<<std::endl;
+            operands.push(n);
             continue;
         }
         //power operator
@@ -181,7 +200,7 @@ void Parser::parse_line(std::string exp_str)
             {
                 node* vir_node=new node();
                 vir_node->type=VIRTUAL;
-                vir_node->value=0;
+                vir_node->value=CompVal(0);
                 operands.push( vir_node);
             }
 
@@ -206,7 +225,7 @@ void Parser::parse_line(std::string exp_str)
     }
     if(!optor.empty())
     {
-        throw("INVALID EXPRESSION");
+        ErrorHandler::throwMsg(E_EXP);
     }
 
     root=operands.top();
@@ -234,12 +253,14 @@ std::string Parser::print_node(node* cur,int level)
     {
     case CONSTANT:
         tmp+=space_create(level);
-        tmp+=std::to_string(cur->value)+'\n';
+        tmp+=std::to_string(cur->value.get_int_val())+'\n';
         break;
     case IDENTIFIER:
         tmp+=space_create(level);
         tmp+=cur->content+'\n';
         break;
+    case STRING:
+        tmp+=cur->value.get_str_val()+'\n';
     case OPERATOR:
         tmp+=space_create(level);
         if(cur->op=='^')
@@ -247,6 +268,8 @@ std::string Parser::print_node(node* cur,int level)
         else
             tmp+=std::string(1,cur->op)+"\n";
         std::cout<<"op:"<<cur->op<<std::endl;
+        break;
+    default:
         break;
     }
     return tmp;

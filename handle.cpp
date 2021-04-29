@@ -96,6 +96,51 @@ bool parse_exp(char*& str,char*& exp)
     return true;
 }
 
+bool parse_string(char*& str,char*& str_after)
+{
+    int len=0;
+    char* left_delim,*right_delim;
+    char* row_begin;
+    SKIP_BLANK(str);
+    if(IS_STR_DELIM(str))
+    {
+        left_delim=str;
+        str++;
+    }
+    else
+        return false;
+
+    row_begin=str;
+
+    while(!IS_END(str)&&!IS_STR_DELIM(str))
+    {
+        len++;
+        str++;
+    }
+
+    //if right delimiter missing
+    if(!IS_STR_DELIM(str))
+        return false;
+    right_delim=str;
+
+    //skip blanks
+//    SKIP_BLANK(str);
+
+//    //if string still contains char, it's invalid
+//    if(!IS_END(str))
+//        return false;
+
+    if(!IS_DELIM_MATCH(left_delim,right_delim))
+        return false;
+
+    //correct string
+    str_after=new char[len+1];
+    str_after[len]='\0';
+    strncpy(str_after,row_begin,len);
+
+    return true;
+}
+
 bool str_to_ptr(std::string src,char*& dest)
 {
     dest=new char[src.length()+1];
@@ -103,3 +148,4 @@ bool str_to_ptr(std::string src,char*& dest)
     strcpy(dest,src.c_str());
     return true;
 }
+

@@ -1,6 +1,19 @@
 #include "program.h"
 
-void Program::run(std::list<int> args_value)
+void Program::reset_program()
+{
+    //clear mem
+    mem.mem_clear();
+    //clear prog
+    prog.clear();
+    //reset buffer
+    result_buf="";
+    tree_buf="";
+    //reset args num
+    args_num=0;
+}
+
+void Program::run(std::list<CompVal> args_value)
 {
 
     auto it=prog.begin();
@@ -17,8 +30,15 @@ void Program::run(std::list<int> args_value)
             break;
         case PRINT:
         {
-            int result=it->second->get_stmt_eval();
-            result_buf+=std::to_string(result)+'\n';
+            CompVal result=it->second->get_stmt_eval();
+            if(result.get_type()==V_INT)
+            {
+                result_buf+=std::to_string(result.get_int_val())+'\n';
+            }
+            else if(result.get_type()==V_STR)
+            {
+                result_buf+=result.get_str_val()+'\n';
+            }
             break;
         }
         case REM:
@@ -29,11 +49,14 @@ void Program::run(std::list<int> args_value)
         case GOTO:
             break;
         case INPUT:
+        case INPUTS:
             //put sth into mem
             char* var_name;
             it->second->get_var_name(var_name);
-            mem.insert(std::pair<std::string,int>(std::string(var_name),*args_it));
+            mem.mem_add(var_name,*args_it);
             ++args_it;
+            break;
+        default:
             break;
         }
 
@@ -42,7 +65,7 @@ void Program::run(std::list<int> args_value)
         if(stat->cc)
         {
             it=prog.find(stat->pc);
-            if(it==prog.end()) throw("INVALID GOTO ADDRESS");
+            if(it==prog.end()) ErrorHandler::throwMsg(E_IVD_ADDR);
         }
         else
         {
@@ -57,17 +80,9 @@ void Program::run(std::list<int> args_value)
 
 int Program::load_into_prog(QList<Line> buffer)
 {
-    //clear mem
-    mem.clear();
-    //clear prog
-    prog.clear();
-    //reset buffer
-    result_buf="";
-    tree_buf="";
-    //reset args num
-    args_num=0;
+    reset_program();
 
-    if(buffer.empty()) throw("PLEASE ENTER PROGRAM");
+    if(buffer.empty()) ErrorHandler::throwMsg(E_PRO_MISS);
 
     for(auto it=buffer.begin();it!=buffer.end();++it)
     {
@@ -97,20 +112,42 @@ int Program::load_into_prog(QList<Line> buffer)
             s=new InputStmt((*it).content,&mem,cur_type);
             ++args_num;
             break;
+        case INPUTS:
+            s=new InputsStmt((*it).content,&mem,cur_type);
+            ++args_num;
+            break;
+        default:
+            break;
         }
+
         prog.insert(std::pair<int,Statement*>((*it).num,s));
         if(cur_type==LET||cur_type==PRINT||cur_type==IF||cur_type==GOTO)
         {
             std::string line_num=std::to_string((*it).num);
             tree_buf+=line_num+' '+s->get_stmt_tree();
         }
-
     }
 
     //init stat
     auto first=buffer.begin();
     stat=new status(first->num);
     return args_num;
+}
+
+void Program::mem_add_prog(std::string var,CompVal val)
+{
+    if(mem.mem_search(var,val.get_type()))
+    {
+        mem.mem_replace(var,val);
+    }
+    else
+        mem.mem_add(var,val);
+}
+
+void Program::clear_program()
+{
+    mem.mem_clear();
+    prog.clear();
 }
 
 Program::~Program()

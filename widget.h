@@ -19,18 +19,20 @@
 #include <QtAlgorithms>
 #include <QKeyEvent>
 #include <QEventLoop>
-#include <QString>
-#include <QRegExp>
+#include <QTextBlock>
 
 
 #include <iostream>
 #include <algorithm>
 #include "program.h"
+#include "error.h"
 
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class Widget; }
 QT_END_NAMESPACE
+
+
 
 class Widget : public QWidget
 {
@@ -45,8 +47,14 @@ public:
 private:
     void storeCmd(QString cur_line);
     void storeCmdWrapper(QString cur_line);//with handle fault
+    void parseBuffer();
+
     void showProgm();
     void showPrompt();
+
+    void highlightLine(int line,QColor color,QList<QTextEdit::ExtraSelection>& extras);
+    void highlightAll(QList<int>& error_hlt,QList<int>& debug_hlt);
+    void unhighlightAll(QList<int>& error_hlt,QList<int>& debug_hlt);
 
 private slots:
     void openFile();
@@ -54,7 +62,6 @@ private slots:
     void runCode();
     void clearProgram();
     void displayRltTree();
-
 
 signals:
     void run_complete();;
@@ -70,10 +77,16 @@ private:
     QTextBrowser *result_div,*tree_div,*code_div;
     QPushButton* load_but,*run_but,*clear_but;
 
+    //program buffer
     QList<Line> buffer;
+
+    //highlight list
+    QList<int> error_highlight;
+    QList<int> debug_highlight;
+
     QString result_buf,tree_buf;
     Program program;
-    std::list<int> args_value;
+    std::list<CompVal> args_value;
     int vmline=0;//line without number
 
 };
