@@ -6,6 +6,7 @@ Widget::Widget(QWidget *parent)
     , ui(new Ui::Widget)
 {
     ui->setupUi(this);
+    this->setWindowTitle("MiniBasic");
     this->resize(1200,2000);
     layout=new QVBoxLayout(this);
     code_result_layout=new QHBoxLayout;
@@ -18,8 +19,10 @@ Widget::Widget(QWidget *parent)
     var_div=new QTextBrowser;
     load_but=new QPushButton("LOAD");
     run_but=new QPushButton("RUN");
-    debug_but=new QPushButton("DEBUG");
+    debug_but=new QPushButton("DEBUG/STEP");
     clear_but=new QPushButton("CLEAR");
+    msg_win=new MsgWindow;
+
 
     layout->addLayout(code_result_layout);
     layout->addLayout(tree_var_layout);
@@ -57,12 +60,18 @@ Widget::Widget(QWidget *parent)
     button_layout->addWidget(debug_but);
     button_layout->addWidget(clear_but);
 
+    cur_mode=OTHER;
+
     connect(load_but,SIGNAL(clicked()),this,SLOT(openFile()));
     connect(run_but,SIGNAL(clicked()),this,SLOT(runCode()));
+    connect(debug_but,SIGNAL(clicked()),this,SLOT(debugCodeWrapper()));
     connect(clear_but,SIGNAL(clicked()),this,SLOT(clearProgram()));
     connect(cmd_div,SIGNAL(returnPressed()),this,SLOT(getCmd()));
     connect(cmd_div,SIGNAL(returnPressed()),cmd_div,SLOT(clear()));
     connect(this,SIGNAL(run_complete()),this,SLOT(displayRltTree()));
+    connect(this,SIGNAL(debug_complete()),this,SLOT(finishDebug()));
+    connect(this,SIGNAL(run_complete()),this,SLOT(enableAllButton()));
+    connect(this,SIGNAL(debug_complete()),this,SLOT(enableAllButton()));
 }
 
 void Widget::highlightLine(int line,QColor color,QList<QTextEdit::ExtraSelection>& extras)
@@ -77,31 +86,35 @@ void Widget::highlightLine(int line,QColor color,QList<QTextEdit::ExtraSelection
     extras.append(h);
 }
 
-void Widget::highlightAll(QList<int>& error_hlt,QList<int>& debug_hlt)
+void Widget::highlightLineWrapper(int line,QColor color)
 {
     QList<QTextEdit::ExtraSelection> extras;
-    QColor debug_green(100, 255, 100);
-    QColor error_red(255, 100, 100);
+    highlightLine(line,color,extras);
+    code_div->setExtraSelections(extras);
+}
+
+void Widget::highlightAll(QList<int>& error_hlt,QList<int>& debug_highlight)
+{
+    QList<QTextEdit::ExtraSelection> extras;
     for(auto& error:error_hlt)
     {
         highlightLine(error,error_red,extras);
     }
-    for(auto& debug:debug_hlt)
+    for(auto& debug:debug_highlight)
     {
         highlightLine(debug,debug_green,extras);
     }
     code_div->setExtraSelections(extras);
 }
 
-void Widget::unhighlightAll(QList<int>& error_hlt,QList<int>& debug_hlt)
+void Widget::unhighlightAll(QList<int>& error_hlt,QList<int>& debug_highlight)
 {
     QList<QTextEdit::ExtraSelection> extras;
-    QColor uncolor_write(0,0, 255);
     for(auto& error:error_hlt)
     {
         highlightLine(error,uncolor_write,extras);
     }
-    for(auto& debug:debug_hlt)
+    for(auto& debug:debug_highlight)
     {
         highlightLine(debug,uncolor_write,extras);
     }
@@ -238,9 +251,18 @@ void Widget::storeCmdWrapper(QString cur_line)
     try {
         storeCmd(cur_line);
     }  catch (const char* s) {
-        std::cout<<s<<std::endl;
         result_div->append(QString(s));
         return;
+    }
+}
+
+void Widget::actualLineToVisual()
+{
+    int visual_line=0;
+    for(auto& line:buffer)
+    {
+        line_map.insert(std::pair<int,int>(line.num,visual_line));
+        visual_line++;
     }
 }
 
@@ -248,10 +270,9 @@ void Widget::showProgm()
 {
     //save previous error
     QList<int> error_pre=error_highlight;
-    QList<int> debug_pre=debug_highlight;
+    QList<int> debug_prev=debug_highlight;
     //clear current error and debug
     error_highlight.clear();
-    debug_highlight.clear();
 
     QString s="";
     int line_num=0;
@@ -269,9 +290,39 @@ void Widget::showProgm()
     code_div->setPlainText(s);
 
     //unhighlight previous lines
-    unhighlightAll(error_pre,debug_pre);
+    unhighlightAll(error_pre,debug_prev);
     //highlight all lines
     highlightAll(error_highlight,debug_highlight);
+}
+
+void Widget::showSnapshot()
+{
+    QString var_buf;
+    var_buf=QString(program.prog_snapshot().data());
+    var_div->clear();
+    var_div->setText(var_buf);
+}
+
+void Widget::showResult()
+{
+    QString result_buf;
+    result_buf=QString(program.get_result_buf().data());
+    result_div->clear();
+    result_div->setText(result_buf);
+}
+
+void Widget::showNextTree()
+{
+    QString tree_buf;
+    tree_buf=QString(program.get_current_tree().data());
+    tree_div->clear();
+    tree_div->setText(tree_buf);
+}
+
+void Widget::showMsgWindow(std::string str_msg)
+{
+    msg_win->set_msg(str_msg);
+    msg_win->show();
 }
 
 
@@ -405,6 +456,9 @@ void Widget::showPrompt()
 
 void Widget::runCode()
 {
+    //do line mapping
+    actualLineToVisual();
+
     //input args variables
     int args_num;
     try {
@@ -441,13 +495,92 @@ void Widget::runCode()
     emit run_complete();
 }
 
+void Widget::debugCodeWrapper()
+{
+    try {
+        debugCode();
+    }  catch (const char* s) {
+        showMsgWindow(std::string(s));
+    }
+}
+
+/*
+ * execute program line by line
+ * highlight line is the line to be executed
+*/
+void Widget::debugCode()
+{
+    //first enter debug mode
+    if(cur_mode==OTHER)
+    {
+        //first check everything
+        actualLineToVisual();
+        program.clear_program();
+        program.load_into_prog(buffer);
+        //set mode
+        cur_mode=DEBUG;
+        load_but->setEnabled(false);
+        clear_but->setEnabled(false);
+        debug_next=0;
+        //unhighlight
+        unhighlightAll(error_highlight,debug_highlight);
+        if(!debug_highlight.empty()) debug_highlight.pop_back();
+        //push next
+        debug_highlight.push_back(debug_next);
+        //highlight
+        highlightAll(error_highlight,debug_highlight);
+        //show tree
+        showNextTree();
+        return;
+    }
+
+    //run current statement
+    bool is_end=program.run_one_step();
+    showSnapshot();
+    showResult();
+
+    //if nothing left,return
+    if(!is_end)
+    {
+        emit debug_complete();
+        return;
+    }
+
+    //show next tree
+    showNextTree();
+    int actual_line=program.get_pc();
+    debug_next=line_map.find(actual_line)->second;
+    //unhighlight
+    unhighlightAll(error_highlight,debug_highlight);
+    if(!debug_highlight.empty()) debug_highlight.pop_back();
+    debug_highlight.push_back(debug_next);
+    //highlight
+    highlightAll(error_highlight,debug_highlight);
+
+}
+
+void Widget::finishDebug()
+{
+    cur_mode=OTHER;
+    showMsgWindow("finish debug");
+}
+
+void Widget::enableAllButton()
+{
+    load_but->setEnabled(true);
+    clear_but->setEnabled(true);
+    debug_but->setEnabled(true);
+    run_but->setEnabled(true);
+}
 
 /*
 * clear buffer and program
 */
 void Widget::clearProgram()
 {
-    //delete program
+    //clear program
+    program.clear_program();
+    //clear div
     result_div->clear();
     tree_div->clear();
     code_div->clear();
@@ -455,13 +588,19 @@ void Widget::clearProgram()
     var_div->clear();
     //todo clear buffer
     buffer.clear();
-
+    //clear line map
+    line_map.clear();
+    //clear all argvs
     args_value.clear();
     //clear highlight list
     error_highlight.clear();
     debug_highlight.clear();
     //reset vmline
     vmline=0;
+    //reset debug trace
+    debug_next=0;
+    //set mode
+    cur_mode=OTHER;
 
 }
 
@@ -483,6 +622,21 @@ void Widget::displayRltTree()
 Widget::~Widget()
 {
     delete ui;
+    delete widget;
+    delete layout;
+    delete code_result_layout;
+    delete tree_var_layout;
+    delete button_layout;
+    delete cmd_div;
+    delete result_div;
+    delete tree_div;
+    delete code_div;
+    delete var_div;
+    delete load_but;
+    delete run_but;
+    delete clear_but;
+    delete debug_but;
+    delete msg_win;
 }
 
 void Widget::buffer_out()

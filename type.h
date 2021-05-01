@@ -1,6 +1,10 @@
 #ifndef TYPE_H
 #define TYPE_H
 /*
+ * minibasic mode
+*/
+enum Mode{DEBUG,OTHER};
+/*
  * Statement type
 */
 enum StatementType{LET,IF,PRINT,GOTO,REM,INPUT,INPUTS,END,PRINTF,INVALID};

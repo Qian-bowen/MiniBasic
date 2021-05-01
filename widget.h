@@ -20,12 +20,14 @@
 #include <QKeyEvent>
 #include <QEventLoop>
 #include <QTextBlock>
+#include <QColor>
 
 
 #include <iostream>
 #include <algorithm>
 #include "program.h"
 #include "error.h"
+#include "msgWindow.h"
 
 
 QT_BEGIN_NAMESPACE
@@ -48,23 +50,35 @@ private:
     void storeCmd(QString cur_line);
     void storeCmdWrapper(QString cur_line);//with handle fault
     void parseBuffer();
+    void actualLineToVisual();
+    void debugCode();
 
     void showProgm();
     void showPrompt();
+    void showSnapshot();
+    void showResult();
+    void showNextTree();
+    void showMsgWindow(std::string str_msg);
 
     void highlightLine(int line,QColor color,QList<QTextEdit::ExtraSelection>& extras);
-    void highlightAll(QList<int>& error_hlt,QList<int>& debug_hlt);
-    void unhighlightAll(QList<int>& error_hlt,QList<int>& debug_hlt);
+    void highlightLineWrapper(int line,QColor color);
+    void highlightAll(QList<int>& error_hlt,QList<int>& debug_highlight);
+    void unhighlightAll(QList<int>& error_hlt,QList<int>& debug_highlight);
 
 private slots:
     void openFile();
     void getCmd();
     void runCode();
+    void debugCodeWrapper();
     void clearProgram();
+    void finishDebug();
     void displayRltTree();
+    void enableAllButton();
+
 
 signals:
-    void run_complete();;
+    void run_complete();
+    void debug_complete();
 
 
 private:
@@ -77,8 +91,19 @@ private:
     QTextBrowser *result_div,*tree_div,*code_div,*var_div;
     QPushButton* load_but,*run_but,*clear_but,*debug_but;
 
+    //message window
+    MsgWindow* msg_win;
+
+    //ui colors
+    QColor debug_green=QColor(100, 255, 100);
+    QColor error_red=QColor(255, 100, 100);
+    QColor uncolor_write=QColor(0,0, 255);
+
     //program buffer
     QList<Line> buffer;
+
+    //actual line and visual line map,first is actual line,second is visual line
+    std::unordered_map<int,int> line_map;
 
     //highlight list
     QList<int> error_highlight;
@@ -86,8 +111,10 @@ private:
 
     //QString result_buf,tree_buf;
     Program program;
-    std::list<CompVal> args_value;
+    std::vector<CompVal> args_value;
     int vmline=0;//line without number
+    int debug_next=0;//trace the line debug
+    Mode cur_mode;
 
 };
 #endif // WIDGET_H

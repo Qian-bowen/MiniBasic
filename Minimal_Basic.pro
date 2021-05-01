@@ -13,6 +13,7 @@ SOURCES += \
     handle.cpp \
     main.cpp \
     memory.cpp \
+    msgWindow.cpp \
     parser.cpp \
     program.cpp \
     statement.cpp \
@@ -25,6 +26,7 @@ HEADERS += \
     handle.h \
     line.h \
     memory.h \
+    msgWindow.h \
     parser.h \
     program.h \
     statement.h \
@@ -33,6 +35,7 @@ HEADERS += \
     widget.h
 
 FORMS += \
+    msgWindow.ui \
     widget.ui
 
 # Default rules for deployment.

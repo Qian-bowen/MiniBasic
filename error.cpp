@@ -64,6 +64,9 @@ void ErrorHandler::throwMsg(Error error)
     case E_TYPE_INCOMP:
         throw("INVALID OPERAND TYPE");
         break;
+    case E_PRO_MISS:
+        throw("PROGRAM MISSING");
+        break;
     default:
         break;
     }
