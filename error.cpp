@@ -11,7 +11,7 @@ QString ErrorHandler::exp="[0-9a-zA-Z\\s+\\-*/()]+";
 QString ErrorHandler::address="[0-9]+";
 QString ErrorHandler::cmp_op="[><=]";
 QString ErrorHandler::stri="[\"\'][^\'\"]*[\"\']";
-
+QString ErrorHandler::printf_format_sect="(\\s*,\\s*(([\"\'][^\'\"]*[\"\'])|([a-zA-Z][0-9a-zA-Z]*)|([0-9]+)|([0-9a-zA-Z\\s+\\-*/()]+))\\s*)*";
 /*
  * throw error message
 */
@@ -27,6 +27,9 @@ void ErrorHandler::throwMsg(Error error)
         break;
     case E_INS_PRINT:
         throw("INVALID INSTRUCTION PRINT");
+        break;
+    case E_INS_PRINTF:
+        throw("INVALID INSTRUCTION PRINTF");
         break;
     case E_INS_GOTO:
         throw("INVALID INSTRUCTION GOTO");
@@ -86,6 +89,12 @@ bool ErrorHandler::isValidExp(StatementType type,char* str)
     case PRINT:
     {
         QRegExp print("^\\s*"+exp+"\\s*$");
+        valid=print.exactMatch(QString(str));
+        break;
+    }
+    case PRINTF:
+    {
+        QRegExp print("^\\s*"+stri+"\\s*"+printf_format_sect+"\\s*$");
         valid=print.exactMatch(QString(str));
         break;
     }

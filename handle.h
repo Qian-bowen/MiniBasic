@@ -15,6 +15,7 @@
 #define IS_OPERATOR(s) ((*s)=='+'||(*s)=='-'||(*s)=='*'||(*s)=='/'||(*s)=='=')
 #define IS_CMP_OP(s) ((*s)=='='||(*s)=='>'||(*s)=='<')
 #define IS_END(s) (*(s)=='\0')
+#define IS_COMMA(s) ((*s)==',')
 #define SKIP_BLANK(s) do { \
   while(!IS_END(s) && IS_BLANK(s)) \
     (s)++; \
@@ -41,7 +42,9 @@ bool parse_digit(char*& str,int&val);
 bool parse_op(char*& str,char& op);
 bool parse_cmp_op(char*& str,char& op);
 bool parse_exp(char*& str,char*& exp);
+bool parse_comma(char*& str);
 bool parse_string(char*& str,char*& str_after);
+bool parse_format_string(char*& str,char*& str_after,int& argv_num);
 bool str_to_ptr(std::string src,char*& dest);
 
 

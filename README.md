@@ -20,6 +20,6 @@
 * 不合法表达式：INVALID EXPRESSION
 * 不合法地址：INVALID GOTO ADDRESS
 
-
+错误处理：语法预处理、运行时错误
 
 todo:支持整形、浮点型加减法，支持字符串加法

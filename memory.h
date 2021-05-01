@@ -13,6 +13,7 @@ public:
     void mem_replace(std::string var,CompVal val);
     bool mem_search(std::string var,VarType type);
     CompVal mem_get(std::string var,VarType type);
+    std::unordered_map<std::string,CompVal> mem_snapshot(){return memory;}
     void mem_clear();
 };
 

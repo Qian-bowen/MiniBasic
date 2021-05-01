@@ -2,6 +2,8 @@
 #define ERROR_H
 #include <QRegExp>
 #include <QString>
+#include <regex>
+#include<iostream>//test
 #include "type.h"
 
 class ErrorHandler{
@@ -11,6 +13,7 @@ class ErrorHandler{
     static QString address;
     static QString stri;
     static QString cmp_op;
+    static QString printf_format_sect;
 
 public:
     static void throwMsg(Error error);

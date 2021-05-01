@@ -63,6 +63,8 @@ std::string LetStmt::get_stmt_tree()
     return "LET = \n"+std::string(left_var)+"\n" +exp->get_syntax_tree();
 }
 
+
+
 PrintStmt::PrintStmt(std::string stmt,Memory* m,StatementType t)
     :Statement(stmt,m,t)
 {
@@ -94,6 +96,84 @@ PrintStmt::~PrintStmt()
 std::string PrintStmt::get_stmt_tree()
 {
     return "PRINT = \n"+exp->get_syntax_tree();
+}
+
+PrintfStmt::PrintfStmt(std::string stmt,Memory* m,StatementType t)
+    :Statement(stmt,m,t)
+{
+    origin_stmt=stmt;
+}
+
+/*
+ * use this to carry format string
+*/
+void PrintfStmt::get_var_name(char*& v)
+{
+    char* str;
+    char* str_row;
+    argv_num=0;
+    str_to_ptr(origin_stmt,str);
+    parse_format_string(str,str_row,argv_num);
+    row_string=std::string(str_row);
+    int tmp_argv=argv_num;
+    while(tmp_argv--)
+    {
+        parse_comma(str);
+        SKIP_BLANK(str);
+        if(IS_DIGIT(str))
+        {
+            int val;
+            parse_digit(str,val);
+            val_array.push_back(CompVal(val));
+        }
+        else if(IS_LETTER(str))
+        {
+            char* var;
+            parse_symbol(str,var);
+            std::string tmp_var=std::string(var);
+            CompVal tmp_val;
+            if(mem->mem_search(tmp_var,V_STR))
+            {
+               tmp_val=mem->mem_get(tmp_var,V_STR);
+            }
+            else if(mem->mem_search(tmp_var,V_INT))
+            {
+               tmp_val=mem->mem_get(tmp_var,V_INT);
+            }
+            else
+                ErrorHandler::throwMsg(E_UDEF_VAR);
+            val_array.push_back(tmp_val);
+        }
+        else if(IS_STR_DELIM(str))
+        {
+            char* var_str;
+            parse_string(str,var_str);
+            val_array.push_back(CompVal(std::string(var_str)));
+        }
+        else
+            ErrorHandler::throwMsg(E_INS_PRINTF);
+
+    }
+
+    //reformat string
+    for(auto& val:val_array)
+    {
+        std::string tmp_str;
+        if(val.get_type()==V_STR)
+            tmp_str=val.get_str_val();
+        else if(val.get_type()==V_INT)
+            tmp_str=std::to_string(val.get_int_val());
+        size_t pos=row_string.find('{');
+        row_string=row_string.replace(pos,2,tmp_str);
+        std::cout<<"row string:"<<row_string<<" tmpstr:"<<tmp_str<<std::endl;
+    }
+
+    str_to_ptr(row_string,v);
+}
+
+PrintfStmt::~PrintfStmt()
+{
+
 }
 
 RemStmt::RemStmt(std::string stmt,Memory* m,StatementType t)

@@ -41,6 +41,13 @@ void Program::run(std::list<CompVal> args_value)
             }
             break;
         }
+        case PRINTF:
+        {
+            char* result;
+            it->second->get_var_name(result);
+            result_buf+=std::string(result)+'\n';
+            break;
+        }
         case REM:
             break;
         case IF:
@@ -96,6 +103,9 @@ int Program::load_into_prog(QList<Line> buffer)
         case PRINT:
             s=new PrintStmt((*it).content,&mem,cur_type);
             break;
+        case PRINTF:
+            s=new PrintfStmt((*it).content,&mem,cur_type);
+            break;
         case REM:
             s=new RemStmt((*it).content,&mem,cur_type);
             break;
@@ -142,6 +152,49 @@ void Program::mem_add_prog(std::string var,CompVal val)
     }
     else
         mem.mem_add(var,val);
+}
+
+bool Program::get_mem_value(std::string var,CompVal& val)
+{
+    if(mem.mem_search(var,V_INT))
+    {
+        val=mem.mem_get(var,V_INT);
+        return true;
+    }
+    if(mem.mem_search(var,V_STR))
+    {
+        val=mem.mem_get(var,V_STR);
+        return true;
+    }
+    return false;
+}
+
+/*
+ * get current status of the program
+*/
+std::string Program::prog_snapshot()
+{
+    std::string info="";
+    std::string type_int="INT";
+    std::string type_str="STR";
+    std::unordered_map<std::string,CompVal> mem_slice=mem.mem_snapshot();
+    for(auto& var:mem_slice)
+    {
+        std::string val;
+        info+=var.first+":";
+        if(var.second.get_type()==V_INT)
+        {
+            info+=type_int;
+            val=std::to_string(var.second.get_int_val());
+        }
+        if(var.second.get_type()==V_STR)
+        {
+            info+=type_str;
+            val=var.second.get_str_val();
+        }
+        info+="="+val+"\n";
+    }
+    return info;
 }
 
 void Program::clear_program()

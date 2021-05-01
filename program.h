@@ -25,6 +25,7 @@ private:
     std::string result_buf,tree_buf;
 
     void reset_program();
+    std::string format_string(std::string origin_str,std::vector<CompVal> vc);
 
 public:
     Program(){}
@@ -32,9 +33,12 @@ public:
     int load_into_prog(QList<Line> buffer);//return args nums
     void run(std::list<CompVal> args_value);
     void mem_add_prog(std::string var,CompVal val);
+    bool get_mem_value(std::string var,CompVal& val);
     std::string get_result_buf(){return result_buf;}
     std::string get_tree_buf(){return tree_buf;}
+    std::string prog_snapshot();
     void clear_program();
+
 
 
 };

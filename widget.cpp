@@ -9,19 +9,21 @@ Widget::Widget(QWidget *parent)
     this->resize(1200,2000);
     layout=new QVBoxLayout(this);
     code_result_layout=new QHBoxLayout;
+    tree_var_layout=new QHBoxLayout;
     button_layout=new QHBoxLayout;
     code_div=new QTextBrowser;
     cmd_div=new QLineEdit;
     result_div=new QTextBrowser;
     tree_div=new QTextBrowser;
+    var_div=new QTextBrowser;
     load_but=new QPushButton("LOAD");
     run_but=new QPushButton("RUN");
+    debug_but=new QPushButton("DEBUG");
     clear_but=new QPushButton("CLEAR");
 
     layout->addLayout(code_result_layout);
+    layout->addLayout(tree_var_layout);
     layout->addLayout(button_layout);
-    layout->addWidget(new QLabel(tr("语句与语法树")));
-    layout->addWidget(tree_div);
     layout->addWidget(new QLabel(tr("命令输入窗口")));
     layout->addWidget(cmd_div);
 
@@ -35,10 +37,24 @@ Widget::Widget(QWidget *parent)
     result_layout->addWidget(result_div);
     result_box->setLayout(result_layout);
 
+    QGroupBox* tree_box=new QGroupBox(tr("语句与语法树"));
+    QVBoxLayout* tree_layout=new QVBoxLayout;
+    tree_layout->addWidget(tree_div);
+    tree_box->setLayout(tree_layout);
+
+    QGroupBox* var_box=new QGroupBox(tr("当前变量"));
+    QVBoxLayout* var_layout=new QVBoxLayout;
+    var_layout->addWidget(var_div);
+    var_box->setLayout(var_layout);
+
     code_result_layout->addWidget(code_box);
     code_result_layout->addWidget(result_box);
+    tree_var_layout->addWidget(tree_box);
+    tree_var_layout->addWidget(var_box);
+
     button_layout->addWidget(load_but);
     button_layout->addWidget(run_but);
+    button_layout->addWidget(debug_but);
     button_layout->addWidget(clear_but);
 
     connect(load_but,SIGNAL(clicked()),this,SLOT(openFile()));
@@ -157,6 +173,10 @@ void Widget::storeCmd(QString cur_line)
     else if(!strcmp(name,"PRINT"))
     {
         cur_type=PRINT;
+    }
+    else if(!strcmp(name,"PRINTF"))
+    {
+        cur_type=PRINTF;
     }
     else if(!strcmp(name,"GOTO"))
     {
@@ -334,13 +354,41 @@ void Widget::getCmd()
     }
     else if(cmd.startsWith("PRINT"))
     {
-        std::string num=std::to_string(vmline);
-        QString s(num.data());
-        QString cmd_tmp=s+" "+cmd;
-        vmline++;
-        storeCmdWrapper(cmd_tmp);
-        showProgm();
         runCode();
+        showProgm();
+
+        //parse key word
+        std::string var_str=cmd.toStdString();
+        std::string key_str="PRINT";
+        char* str,*keyword,*var;
+        str_to_ptr(var_str,str);
+        str_to_ptr(key_str,keyword);
+        parse_keyword(str,keyword);
+
+        //parse variable name
+        parse_symbol(str,var);
+        CompVal val;
+
+        //get value and show immediately
+        if(program.get_mem_value(std::string(var),val))
+        {
+            if(val.get_type()==V_INT)
+            {
+                std::string s=std::to_string(val.get_int_val());
+                result_div->append(QString(s.data()));
+            }
+            if(val.get_type()==V_STR)
+            {
+                result_div->append(QString(val.get_str_val().data()));
+            }
+        }
+        else
+            ErrorHandler::throwMsg(E_UDEF_VAR);
+
+    }
+    else if(cmd.startsWith("PRINTF"))
+    {
+
     }
     else
     {
@@ -404,6 +452,7 @@ void Widget::clearProgram()
     tree_div->clear();
     code_div->clear();
     cmd_div->clear();
+    var_div->clear();
     //todo clear buffer
     buffer.clear();
 
@@ -418,15 +467,17 @@ void Widget::clearProgram()
 
 void Widget::displayRltTree()
 {
-    result_buf="";
-    tree_buf="";
+    QString result_buf,tree_buf,var_buf;
 
     result_buf=QString(program.get_result_buf().data());
     tree_buf=QString(program.get_tree_buf().data());
+    var_buf=QString(program.prog_snapshot().data());
     result_div->clear();
     tree_div->clear();
+    var_div->clear();
     result_div->setText(result_buf);
     tree_div->setText(tree_buf);
+    var_div->setText(var_buf);
 }
 
 Widget::~Widget()

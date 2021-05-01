@@ -37,6 +37,7 @@ bool parse_keyword(char*& str,char* key)
     return false;
 }
 
+
 bool parse_digit(char*& str,int&val)
 {
     SKIP_BLANK(str);
@@ -96,6 +97,20 @@ bool parse_exp(char*& str,char*& exp)
     return true;
 }
 
+bool parse_comma(char*& str)
+{
+    SKIP_BLANK(str);
+    if(*str==',')
+    {
+        str++;
+        return true;
+    }
+    return false;
+}
+
+/*
+ * get row string without quotes outside
+*/
 bool parse_string(char*& str,char*& str_after)
 {
     int len=0;
@@ -121,14 +136,14 @@ bool parse_string(char*& str,char*& str_after)
     //if right delimiter missing
     if(!IS_STR_DELIM(str))
         return false;
-    right_delim=str;
+    else
+    {
+        right_delim=str;
+        str++;
+    }
 
-    //skip blanks
-//    SKIP_BLANK(str);
+    SKIP_BLANK(str);
 
-//    //if string still contains char, it's invalid
-//    if(!IS_END(str))
-//        return false;
 
     if(!IS_DELIM_MATCH(left_delim,right_delim))
         return false;
@@ -137,6 +152,65 @@ bool parse_string(char*& str,char*& str_after)
     str_after=new char[len+1];
     str_after[len]='\0';
     strncpy(str_after,row_begin,len);
+
+    return true;
+}
+
+
+bool parse_format_string(char*& str,char*& str_row,int& argv_num)
+{
+    argv_num=0;
+    int len=0;
+    char* left_delim,*right_delim;
+    char* row_begin;
+    SKIP_BLANK(str);
+    if(IS_STR_DELIM(str))
+    {
+        left_delim=str;
+        str++;
+    }
+    else
+        return false;
+
+    row_begin=str;
+
+    while(!IS_END(str)&&!IS_STR_DELIM(str))
+    {
+        if(*str=='{')
+        {
+            len++;
+            str++;
+            if(!IS_END(str)&&*str=='}')
+            {
+                len++;
+                str++;
+                argv_num++;
+            }
+            else
+                return false;
+            continue;
+        }
+        len++;
+        str++;
+    }
+
+    //if right delimiter missing
+    if(!IS_STR_DELIM(str))
+        return false;
+    else
+    {
+        right_delim=str;
+        str++;
+    }
+
+    SKIP_BLANK(str);
+
+    if(!IS_DELIM_MATCH(left_delim,right_delim))
+        return false;
+
+    str_row=new char[len+1];
+    str_row[len]='\0';
+    strncpy(str_row,row_begin,len);
 
     return true;
 }

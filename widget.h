@@ -72,10 +72,10 @@ private:
     Ui::Widget *ui;
     QWidget *widget;
     QVBoxLayout* layout;
-    QHBoxLayout* code_result_layout,*button_layout;
+    QHBoxLayout* code_result_layout,*tree_var_layout,*button_layout;
     QLineEdit *cmd_div;
-    QTextBrowser *result_div,*tree_div,*code_div;
-    QPushButton* load_but,*run_but,*clear_but;
+    QTextBrowser *result_div,*tree_div,*code_div,*var_div;
+    QPushButton* load_but,*run_but,*clear_but,*debug_but;
 
     //program buffer
     QList<Line> buffer;
@@ -84,7 +84,7 @@ private:
     QList<int> error_highlight;
     QList<int> debug_highlight;
 
-    QString result_buf,tree_buf;
+    //QString result_buf,tree_buf;
     Program program;
     std::list<CompVal> args_value;
     int vmline=0;//line without number
