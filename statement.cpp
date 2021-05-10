@@ -101,6 +101,8 @@ std::string PrintStmt::get_stmt_tree()
 PrintfStmt::PrintfStmt(std::string stmt,Memory* m,StatementType t)
     :Statement(stmt,m,t)
 {
+    mem=m;
+    type=t;
     origin_stmt=stmt;
 }
 

@@ -21,6 +21,7 @@
 #include <QEventLoop>
 #include <QTextBlock>
 #include <QColor>
+#include <QMessageBox>
 
 
 #include <iostream>
@@ -52,6 +53,7 @@ private:
     void parseBuffer();
     void actualLineToVisual();
     void debugCode();
+    CompVal parsePropmtLine(char*& prompt);
 
     void showProgm();
     void showPrompt();
@@ -75,11 +77,9 @@ private slots:
     void displayRltTree();
     void enableAllButton();
 
-
 signals:
     void run_complete();
     void debug_complete();
-
 
 private:
     //ui component
@@ -91,8 +91,8 @@ private:
     QTextBrowser *result_div,*tree_div,*code_div,*var_div;
     QPushButton* load_but,*run_but,*clear_but,*debug_but;
 
-    //message window
-    MsgWindow* msg_win;
+    //message box
+    QMessageBox* msgBox;
 
     //ui colors
     QColor debug_green=QColor(100, 255, 100);
@@ -109,10 +109,11 @@ private:
     QList<int> error_highlight;
     QList<int> debug_highlight;
 
-    //QString result_buf,tree_buf;
     Program program;
+
     std::vector<CompVal> args_value;
-    int vmline=0;//line without number
+    std::string cmd_input_name="";
+
     int debug_next=0;//trace the line debug
     Mode cur_mode;
 

@@ -43,6 +43,7 @@ public:
     std::string get_tree_buf(){return tree_buf;}
     std::string get_current_tree();
     std::string prog_snapshot();
+    Memory* mem_snapshot(){return &mem;}
     int get_pc(){return stat->pc;}
     void clear_program();
 

@@ -118,7 +118,7 @@ int Program::load_into_prog(QList<Line> buffer)
     reset_program();
     int args_num=0;
 
-    if(buffer.empty()) ErrorHandler::throwMsg(E_PRO_MISS);
+    if(buffer.empty()) return -1;
 
     for(auto it=buffer.begin();it!=buffer.end();++it)
     {

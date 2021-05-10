@@ -21,7 +21,6 @@ Widget::Widget(QWidget *parent)
     run_but=new QPushButton("RUN");
     debug_but=new QPushButton("DEBUG/STEP");
     clear_but=new QPushButton("CLEAR");
-    msg_win=new MsgWindow;
 
 
     layout->addLayout(code_result_layout);
@@ -49,6 +48,8 @@ Widget::Widget(QWidget *parent)
     QVBoxLayout* var_layout=new QVBoxLayout;
     var_layout->addWidget(var_div);
     var_box->setLayout(var_layout);
+
+    msgBox=new QMessageBox(this);
 
     code_result_layout->addWidget(code_box);
     code_result_layout->addWidget(result_box);
@@ -121,6 +122,31 @@ void Widget::unhighlightAll(QList<int>& error_hlt,QList<int>& debug_highlight)
     code_div->setExtraSelections(extras);
 }
 
+CompVal Widget::parsePropmtLine(char*& str)
+{
+    CompVal res;
+    if(*str=='?')
+    {
+        str++;
+        SKIP_BLANK(str);
+        if(IS_DIGIT(str))
+        {
+            int val;
+            parse_digit(str,val);
+            res=CompVal(val);
+            args_value.push_back(res);
+        }
+        else if(IS_STR_DELIM(str))
+        {
+            char* val;
+            parse_string(str,val);
+            res=CompVal(std::string(val));
+            args_value.push_back(res);
+        }
+    }
+    return res;
+}
+
 
 void Widget::storeCmd(QString cur_line)
 {
@@ -135,19 +161,11 @@ void Widget::storeCmd(QString cur_line)
     //handle prompt
     if(*str=='?')
     {
-        str++;
-        SKIP_BLANK(str);
-        if(IS_DIGIT(str))
+        CompVal res=parsePropmtLine(str);
+        if(cmd_input_name!="")
         {
-            int val;
-            parse_digit(str,val);
-            args_value.push_back(CompVal(val));
-        }
-        else if(IS_STR_DELIM(str))
-        {
-            char* val;
-            parse_string(str,val);
-            args_value.push_back(CompVal(std::string(val)));
+            program.mem_add_prog(cmd_input_name,res);
+            cmd_input_name="";
         }
         return;
     }
@@ -321,15 +339,13 @@ void Widget::showNextTree()
 
 void Widget::showMsgWindow(std::string str_msg)
 {
-    msg_win->set_msg(str_msg);
-    msg_win->show();
+    msgBox->setText(QString(str_msg.c_str()));
+    msgBox->exec();
 }
 
 
 void Widget::openFile()
 {
-    vmline=0;
-
     QString file_name = QFileDialog::getOpenFileName(NULL,"选择文件",".","*.txt");
     QFile file(file_name);
     file.open(QIODevice::ReadOnly);
@@ -379,28 +395,82 @@ void Widget::getCmd()
     //let\input\print without
     else if(cmd.startsWith("LET"))
     {
-        std::string num=std::to_string(vmline);
-        QString s(num.data());
-        QString cmd_tmp=s+" "+cmd;
-        vmline++;
-        storeCmdWrapper(cmd_tmp);
+        runCode();
         showProgm();
 
+        //parse key word
+        std::string var_str=cmd.toStdString();
+        std::string key_str="LET";
+        char* str,*keyword;
+        str_to_ptr(var_str,str);
+        str_to_ptr(key_str,keyword);
+        parse_keyword(str,keyword);
+
+        LetStmt cur_stmt(str,program.mem_snapshot(),LET);
+        cur_stmt.get_stmt_eval();
     }
-    else if(cmd.startsWith("INPUT")||cmd.startsWith("INPUTS"))
+    else if(cmd.startsWith("INPUTS"))
     {
+        runCode();
+        showProgm();
+
+        //parse key word
+        std::string var_str=cmd.toStdString();
+        std::string key_str="INPUTS";
+        char* str,*keyword,*var;
+        str_to_ptr(var_str,str);
+        str_to_ptr(key_str,keyword);
+        parse_keyword(str,keyword);
+
+        InputsStmt cur_stmt(str,program.mem_snapshot(),INPUTS);
+        cur_stmt.get_var_name(var);
+        cmd_input_name=std::string(var);
+
         showPrompt();
         QEventLoop loop;
         connect(cmd_div,SIGNAL(returnPressed()),&loop,SLOT(quit()));
         loop.exec();
-
-        std::string num=std::to_string(vmline);
-        QString s(num.data());
-        QString cmd_tmp=s+" "+cmd;
-        vmline++;
-
-        storeCmdWrapper(cmd_tmp);
+        return;
+    }
+    else if(cmd.startsWith("INPUT"))
+    {
+        runCode();
         showProgm();
+
+        //parse key word
+        std::string var_str=cmd.toStdString();
+        std::string key_str="INPUT";
+        char* str,*keyword,*var;
+        str_to_ptr(var_str,str);
+        str_to_ptr(key_str,keyword);
+        parse_keyword(str,keyword);
+
+        InputStmt cur_stmt(str,program.mem_snapshot(),INPUT);
+        cur_stmt.get_var_name(var);
+        cmd_input_name=std::string(var);
+
+        showPrompt();
+        QEventLoop loop;
+        connect(cmd_div,SIGNAL(returnPressed()),&loop,SLOT(quit()));
+        loop.exec();
+        return;
+    }
+    else if(cmd.startsWith("PRINTF"))
+    {
+        runCode();
+        showProgm();
+
+        //parse key word
+        std::string var_str=cmd.toStdString();
+        std::string key_str="PRINTF";
+        char* str,*keyword,*var;
+        str_to_ptr(var_str,str);
+        str_to_ptr(key_str,keyword);
+        parse_keyword(str,keyword);
+
+        PrintfStmt cur_stmt(str,program.mem_snapshot(),PRINTF);
+        cur_stmt.get_var_name(var);
+        result_div->append(QString(var));
         return;
     }
     else if(cmd.startsWith("PRINT"))
@@ -411,35 +481,23 @@ void Widget::getCmd()
         //parse key word
         std::string var_str=cmd.toStdString();
         std::string key_str="PRINT";
-        char* str,*keyword,*var;
+        char* str,*keyword;
         str_to_ptr(var_str,str);
         str_to_ptr(key_str,keyword);
         parse_keyword(str,keyword);
 
-        //parse variable name
-        parse_symbol(str,var);
-        CompVal val;
+        PrintStmt cur_stmt(str,program.mem_snapshot(),PRINT);
+        CompVal val=cur_stmt.get_stmt_eval();
 
-        //get value and show immediately
-        if(program.get_mem_value(std::string(var),val))
+        if(val.get_type()==V_INT)
         {
-            if(val.get_type()==V_INT)
-            {
-                std::string s=std::to_string(val.get_int_val());
-                result_div->append(QString(s.data()));
-            }
-            if(val.get_type()==V_STR)
-            {
-                result_div->append(QString(val.get_str_val().data()));
-            }
+            std::string s=std::to_string(val.get_int_val());
+            result_div->append(QString(s.data()));
         }
-        else
-            ErrorHandler::throwMsg(E_UDEF_VAR);
-
-    }
-    else if(cmd.startsWith("PRINTF"))
-    {
-
+        if(val.get_type()==V_STR)
+        {
+            result_div->append(QString(val.get_str_val().data()));
+        }
     }
     else
     {
@@ -456,6 +514,8 @@ void Widget::showPrompt()
 
 void Widget::runCode()
 {
+    if(buffer.empty()) return;
+
     //do line mapping
     actualLineToVisual();
 
@@ -486,8 +546,7 @@ void Widget::runCode()
     }
     catch (char const* s)
     {
-        std::cout<<s<<std::endl;
-        result_div->append(QString(s));
+        showMsgWindow(s);
         program.clear_program();
         return;
     }
@@ -596,7 +655,7 @@ void Widget::clearProgram()
     error_highlight.clear();
     debug_highlight.clear();
     //reset vmline
-    vmline=0;
+    //vmline=0;
     //reset debug trace
     debug_next=0;
     //set mode
@@ -636,7 +695,6 @@ Widget::~Widget()
     delete run_but;
     delete clear_but;
     delete debug_but;
-    delete msg_win;
 }
 
 void Widget::buffer_out()

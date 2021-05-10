@@ -22,7 +22,6 @@ void Parser::eval_tree(node* root,CompVal& val,bool& succ)
 
     if(root->type==CONSTANT||root->type==VIRTUAL||root->type==STRING)
     {
-        //std::cout<<"value:"<<root->value<<std::endl;
         val=root->value;
         return;
     }

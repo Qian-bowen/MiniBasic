@@ -4,7 +4,6 @@
 #include <string>
 #include "variable.h"
 
-
 struct node{
     ExpressionType type;
     char op;//n means no op
