@@ -21,7 +21,6 @@ LetStmt::LetStmt(std::string stmt,Memory* m,StatementType t)
     //split the statement to type and exp
     char* str;
     str_to_ptr(stmt,str);
-    std::cout<<str<<std::endl;
 
     char op;
     parse_symbol(str,left_var);
@@ -106,6 +105,11 @@ PrintfStmt::PrintfStmt(std::string stmt,Memory* m,StatementType t)
     origin_stmt=stmt;
 }
 
+std::string PrintfStmt::get_stmt_tree()
+{
+    return "PRINTF = \n"+origin_stmt+"\n";
+}
+
 /*
  * use this to carry format string
 */
@@ -167,7 +171,6 @@ void PrintfStmt::get_var_name(char*& v)
             tmp_str=std::to_string(val.get_int_val());
         size_t pos=row_string.find('{');
         row_string=row_string.replace(pos,2,tmp_str);
-        std::cout<<"row string:"<<row_string<<" tmpstr:"<<tmp_str<<std::endl;
     }
 
     str_to_ptr(row_string,v);

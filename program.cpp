@@ -87,14 +87,25 @@ std::map<int,Statement*>::iterator Program::exec_one_statement(int cur_pc)
     return it;
 }
 
-void Program::run(std::vector<CompVal> args_value)
+void Program::load_args_value(std::vector<CompVal> args_value)
 {
     argvs=args_value;
+}
+
+void Program::run(std::vector<CompVal> args_value)
+{
+    load_args_value(args_value);
 
     auto it=prog.begin();
     while(it!=prog.end())
     {
-        it=exec_one_statement(stat->pc);
+        int cur_pc=stat->pc;
+        try {
+            it=exec_one_statement(stat->pc);
+        }  catch (const char* msg) {
+            RunError runError(cur_pc,msg);
+            throw(runError);
+        }
     }
 
     //reset status after the program end
@@ -104,14 +115,25 @@ void Program::run(std::vector<CompVal> args_value)
 /*
  * run one step
  * return false if no statement left to run
+ * if meet with error throw it immediately
 */
 bool Program::run_one_step()
 {
-    auto it=exec_one_statement(stat->pc);
+    std::map<int,Statement*>::iterator it;
+    int cur_pc=stat->pc;
+    try {
+        it=exec_one_statement(stat->pc);
+    }  catch (const char* msg) {
+        RunError runError(cur_pc,msg);
+        throw(runError);
+    }
+
     if(it==prog.end())
         return false;
     return true;
 }
+
+
 
 int Program::load_into_prog(QList<Line> buffer)
 {
@@ -160,11 +182,9 @@ int Program::load_into_prog(QList<Line> buffer)
         }
 
         prog.insert(std::pair<int,Statement*>((*it).num,s));
-        if(cur_type==LET||cur_type==PRINT||cur_type==IF||cur_type==GOTO)
-        {
-            std::string line_num=std::to_string((*it).num);
-            tree_buf+=line_num+' '+s->get_stmt_tree();
-        }
+
+        std::string line_num=std::to_string((*it).num);
+        tree_buf+=line_num+' '+s->get_stmt_tree()+'\n';
     }
 
     //init stat

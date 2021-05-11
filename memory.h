@@ -4,6 +4,13 @@
 #include "handle.h"
 #include "variable.h"
 
+struct status{
+    bool cc;//condition code, false means run next line
+    int pc;//next line to execute
+    status(int p):cc(false),pc(p){}
+};
+
+
 class Memory{
 private:
     std::unordered_map<std::string,CompVal> memory;

@@ -22,6 +22,15 @@ public:
 
 };
 
+class RunError{
+    int pc;
+    const char* msg;
+public:
+    RunError(int p,const char* m){pc=p;msg=m;}
+    int get_error_pc(){return pc;}
+    const char* get_error_msg(){return msg;}
+};
+
 
 
 #endif // ERROR_H

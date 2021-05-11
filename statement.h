@@ -14,7 +14,7 @@ protected:
     int stmt_pc;
 
     Statement(std::string stmt,Memory* m,StatementType t):type(t),mem(m)
-    {stmt_cc=false;stmt_pc=-1;};
+    {stmt="";stmt_cc=false;stmt_pc=-1;}
 
 public:
     StatementType get_type();
@@ -22,7 +22,6 @@ public:
     virtual std::string get_stmt_tree()=0;
     virtual void get_var_name(char*& v)=0;//inputstmt only
     virtual CompVal get_stmt_eval()=0;
-    //virtual std::vector<CompVal> get_stmt_eval_array()=0;
     virtual ~Statement(){}
 };
 
@@ -35,9 +34,8 @@ public:
 public:
     LetStmt(std::string stmt,Memory* m,StatementType t);
     CompVal get_stmt_eval();
-    //std::vector<CompVal> get_stmt_eval_array(){return {};}
     std::string get_stmt_tree();
-    void get_var_name(char*& v){};
+    void get_var_name(char*& v){v=NULL;};
     ~LetStmt();
 
 };
@@ -49,9 +47,8 @@ class PrintStmt:public Statement{
 public:
     PrintStmt(std::string stmt,Memory* m,StatementType t);
     CompVal get_stmt_eval();//get print value
-    //std::vector<CompVal> get_stmt_eval_array(){return {};}
     std::string get_stmt_tree();
-    void get_var_name(char*& v){};
+    void get_var_name(char*& v){v=NULL;};
     ~PrintStmt();
 };
 
@@ -63,8 +60,7 @@ class PrintfStmt:public Statement{
 public:
     PrintfStmt(std::string stmt,Memory* m,StatementType t);
     CompVal get_stmt_eval(){return CompVal();}//get printf value
-    //std::vector<CompVal> get_stmt_eval_array();
-    std::string get_stmt_tree(){return "";};//todo!
+    std::string get_stmt_tree();//todo!
     void get_var_name(char*& v);
     ~PrintfStmt();
 };
@@ -73,9 +69,8 @@ class RemStmt:public Statement{
 public:
     RemStmt(std::string stmt,Memory* m,StatementType t);
     CompVal get_stmt_eval(){return CompVal();}
-    //std::vector<CompVal> get_stmt_eval_array(){return {};}
     std::string get_stmt_tree(){return "";}
-    void get_var_name(char*& v){};
+    void get_var_name(char*& v){v=NULL;};
     ~RemStmt();
 };
 
@@ -87,9 +82,8 @@ public:
     IfStmt(std::string stmt,Memory* m,StatementType t);
     ~IfStmt();
     CompVal get_stmt_eval();//reevaluate exp and cc
-    //std::vector<CompVal> get_stmt_eval_array(){return {};}
     std::string get_stmt_tree();
-    void get_var_name(char*& v){}
+    void get_var_name(char*& v){v=NULL;}
 };
 
 class GotoStmt:public Statement{
@@ -97,9 +91,8 @@ public:
     GotoStmt(std::string stmt,Memory* m,StatementType t);
     ~GotoStmt();
     CompVal get_stmt_eval(){return CompVal();}
-    //std::vector<CompVal> get_stmt_eval_array(){return {};}
     std::string get_stmt_tree();
-    void get_var_name(char*& v){}
+    void get_var_name(char*& v){v=NULL;}
 };
 
 class EndStmt:public Statement{
@@ -107,9 +100,8 @@ public:
     EndStmt(std::string stmt,Memory* m,StatementType t);
     ~EndStmt();
     CompVal get_stmt_eval(){return CompVal();}
-    //std::vector<CompVal> get_stmt_eval_array(){return {};}
     std::string get_stmt_tree(){return "";}
-    void get_var_name(char*& v){}
+    void get_var_name(char*& v){v=NULL;}
 };
 
 class InputStmt:public Statement{
@@ -119,7 +111,6 @@ public:
     ~InputStmt();
     void get_var_name(char*& v);
     CompVal get_stmt_eval(){return CompVal();}
-    //std::vector<CompVal> get_stmt_eval_array(){return {};}
     std::string get_stmt_tree(){return "";}
 };
 
@@ -130,7 +121,6 @@ public:
     ~InputsStmt();
     void get_var_name(char*& v);
     CompVal get_stmt_eval(){return CompVal();}
-    //std::vector<CompVal> get_stmt_eval_array(){return {};}
     std::string get_stmt_tree(){return "";};
 };
 

@@ -63,11 +63,14 @@ Widget::Widget(QWidget *parent)
 
     cur_mode=OTHER;
 
+    //only ascii is valid in cmd line
+    cmd_div->setValidator(new QRegExpValidator( QRegExp("[\\x0000-\\x007F]*")));
+
     connect(load_but,SIGNAL(clicked()),this,SLOT(openFile()));
     connect(run_but,SIGNAL(clicked()),this,SLOT(runCode()));
     connect(debug_but,SIGNAL(clicked()),this,SLOT(debugCodeWrapper()));
     connect(clear_but,SIGNAL(clicked()),this,SLOT(clearProgram()));
-    connect(cmd_div,SIGNAL(returnPressed()),this,SLOT(getCmd()));
+    connect(cmd_div,SIGNAL(returnPressed()),this,SLOT(getCmdWrapper()));
     connect(cmd_div,SIGNAL(returnPressed()),cmd_div,SLOT(clear()));
     connect(this,SIGNAL(run_complete()),this,SLOT(displayRltTree()));
     connect(this,SIGNAL(debug_complete()),this,SLOT(finishDebug()));
@@ -134,6 +137,7 @@ CompVal Widget::parsePropmtLine(char*& str)
             int val;
             parse_digit(str,val);
             res=CompVal(val);
+            std::cout<<"int val:"<<res.get_int_val()<<std::endl;
             args_value.push_back(res);
         }
         else if(IS_STR_DELIM(str))
@@ -159,7 +163,7 @@ void Widget::storeCmd(QString cur_line)
     SKIP_BLANK(str);
 
     //handle prompt
-    if(*str=='?')
+    if(IS_PROMPT(str))
     {
         CompVal res=parsePropmtLine(str);
         if(cmd_input_name!="")
@@ -242,7 +246,9 @@ void Widget::storeCmd(QString cur_line)
     //check if the valid line has valid syntax
     if(INVALID!=cur_type &&
             !ErrorHandler::isValidExp(cur_type,str))
+    {
         cmd_error=ErrorHandler::StmtToError(cur_type);
+    }
 
     //skip all the blank left
     SKIP_BLANK(str);
@@ -287,10 +293,10 @@ void Widget::actualLineToVisual()
 void Widget::showProgm()
 {
     //save previous error
-    QList<int> error_pre=error_highlight;
-    QList<int> debug_prev=debug_highlight;
+    QList<int> error_pre=error_line;
+    QList<int> debug_prev=debug_line;
     //clear current error and debug
-    error_highlight.clear();
+    error_line.clear();
 
     QString s="";
     int line_num=0;
@@ -301,7 +307,7 @@ void Widget::showProgm()
         //handle error line
         if(E_NONE!=line.get_line_error())
         {
-            error_highlight.push_back(line_num);
+            error_line.push_back(line_num);
         }
         ++line_num;
     }
@@ -310,7 +316,7 @@ void Widget::showProgm()
     //unhighlight previous lines
     unhighlightAll(error_pre,debug_prev);
     //highlight all lines
-    highlightAll(error_highlight,debug_highlight);
+    highlightAll(error_line,debug_line);
 }
 
 void Widget::showSnapshot()
@@ -363,9 +369,122 @@ void Widget::openFile()
     showProgm();
 }
 
+
+void Widget::execCmdWrapper(StatementType type,std::string cur_line)
+{
+    try {
+        execCmd(type,cur_line);
+    }  catch (const char* s) {
+        showMsgWindow(std::string(s));
+    }
+}
+
+/*
+ * cmd that can be executed cmd immediately after get it
+*/
+void Widget::execCmd(StatementType type,std::string cur_line)
+{
+    //check if cmd valid
+    char* str;
+    str_to_ptr(cur_line,str);
+    if(!ErrorHandler::isValidExp(type,str))
+    {
+        Error cmd_error=ErrorHandler::StmtToError(type);
+        ErrorHandler::throwMsg(cmd_error);
+        return;
+    }
+
+    //run previous code first
+    runCode();
+    showProgm();
+
+    //handle the cmd
+    if(type==LET)
+    {
+        LetStmt cur_stmt(cur_line,program.mem_snapshot(),LET);
+        cur_stmt.get_stmt_eval();
+    }
+    else if(type==INPUTS)
+    {
+        char* var;
+        InputsStmt cur_stmt(cur_line,program.mem_snapshot(),INPUTS);
+        cur_stmt.get_var_name(var);
+        cmd_input_name=std::string(var);
+
+        showPrompt();
+        QEventLoop loop;
+        connect(cmd_div,SIGNAL(returnPressed()),&loop,SLOT(quit()));
+        loop.exec();
+    }
+    else if(type==INPUT)
+    {
+        char* var;
+        InputStmt cur_stmt(cur_line,program.mem_snapshot(),INPUT);
+        cur_stmt.get_var_name(var);
+        cmd_input_name=std::string(var);
+
+        showPrompt();
+        QEventLoop loop;
+        connect(cmd_div,SIGNAL(returnPressed()),&loop,SLOT(quit()));
+        loop.exec();
+    }
+    else if(type==PRINTF)
+    {
+        char* var;
+        PrintfStmt cur_stmt(cur_line,program.mem_snapshot(),PRINTF);
+        cur_stmt.get_var_name(var);
+        result_div->append(QString(var));
+    }
+    else if(type==PRINT)
+    {
+        PrintStmt cur_stmt(cur_line,program.mem_snapshot(),PRINT);
+        CompVal val=cur_stmt.get_stmt_eval();
+
+        if(val.get_type()==V_INT)
+        {
+            std::string s=std::to_string(val.get_int_val());
+            result_div->append(QString(s.data()));
+        }
+        //cannot print string
+        if(val.get_type()==V_STR)
+        {
+            ErrorHandler::throwMsg(E_UDEF_VAR);
+        }
+    }
+}
+
+void Widget::getCmdWrapper()
+{
+    try {
+        getCmd();
+    }  catch (const char* s) {
+        std::cout<<s<<std::endl;
+        showMsgWindow(std::string(s));
+    }
+}
+
+
 void Widget::getCmd()
 {
-    QString cmd=cmd_div->text();
+    char* name,*str;
+    QString cmd_txt=cmd_div->text();
+
+    //parse cmd name
+    str_to_ptr(cmd_txt.toStdString(),str);
+    SKIP_BLANK(str);
+
+    //if is program buffer or prompt
+    if(IS_DIGIT(str)||IS_PROMPT(str))
+    {
+        storeCmdWrapper(cmd_txt);
+        showProgm();
+        return;
+    }
+
+    //if  is cmd to be immediately executed
+    parse_symbol(str,name);
+    std::string cmd=std::string(name);
+    std::string line_remain(str);
     //PARSE CMD
     if(cmd=="QUIT")
     {
@@ -393,116 +512,29 @@ void Widget::getCmd()
         code_div->setText("HELP INFOMATION");
     }
     //let\input\print without
-    else if(cmd.startsWith("LET"))
+    else if(cmd=="LET")
     {
-        runCode();
-        showProgm();
-
-        //parse key word
-        std::string var_str=cmd.toStdString();
-        std::string key_str="LET";
-        char* str,*keyword;
-        str_to_ptr(var_str,str);
-        str_to_ptr(key_str,keyword);
-        parse_keyword(str,keyword);
-
-        LetStmt cur_stmt(str,program.mem_snapshot(),LET);
-        cur_stmt.get_stmt_eval();
+        execCmdWrapper(LET,line_remain);
     }
-    else if(cmd.startsWith("INPUTS"))
+    else if(cmd=="INPUTS")
     {
-        runCode();
-        showProgm();
-
-        //parse key word
-        std::string var_str=cmd.toStdString();
-        std::string key_str="INPUTS";
-        char* str,*keyword,*var;
-        str_to_ptr(var_str,str);
-        str_to_ptr(key_str,keyword);
-        parse_keyword(str,keyword);
-
-        InputsStmt cur_stmt(str,program.mem_snapshot(),INPUTS);
-        cur_stmt.get_var_name(var);
-        cmd_input_name=std::string(var);
-
-        showPrompt();
-        QEventLoop loop;
-        connect(cmd_div,SIGNAL(returnPressed()),&loop,SLOT(quit()));
-        loop.exec();
-        return;
+        execCmdWrapper(INPUTS,line_remain);
     }
-    else if(cmd.startsWith("INPUT"))
+    else if(cmd=="INPUT")
     {
-        runCode();
-        showProgm();
-
-        //parse key word
-        std::string var_str=cmd.toStdString();
-        std::string key_str="INPUT";
-        char* str,*keyword,*var;
-        str_to_ptr(var_str,str);
-        str_to_ptr(key_str,keyword);
-        parse_keyword(str,keyword);
-
-        InputStmt cur_stmt(str,program.mem_snapshot(),INPUT);
-        cur_stmt.get_var_name(var);
-        cmd_input_name=std::string(var);
-
-        showPrompt();
-        QEventLoop loop;
-        connect(cmd_div,SIGNAL(returnPressed()),&loop,SLOT(quit()));
-        loop.exec();
-        return;
+        execCmdWrapper(INPUT,line_remain);
     }
-    else if(cmd.startsWith("PRINTF"))
+    else if(cmd=="PRINTF")
     {
-        runCode();
-        showProgm();
-
-        //parse key word
-        std::string var_str=cmd.toStdString();
-        std::string key_str="PRINTF";
-        char* str,*keyword,*var;
-        str_to_ptr(var_str,str);
-        str_to_ptr(key_str,keyword);
-        parse_keyword(str,keyword);
-
-        PrintfStmt cur_stmt(str,program.mem_snapshot(),PRINTF);
-        cur_stmt.get_var_name(var);
-        result_div->append(QString(var));
-        return;
+        execCmdWrapper(PRINTF,line_remain);
     }
-    else if(cmd.startsWith("PRINT"))
+    else if(cmd=="PRINT")
     {
-        runCode();
-        showProgm();
-
-        //parse key word
-        std::string var_str=cmd.toStdString();
-        std::string key_str="PRINT";
-        char* str,*keyword;
-        str_to_ptr(var_str,str);
-        str_to_ptr(key_str,keyword);
-        parse_keyword(str,keyword);
-
-        PrintStmt cur_stmt(str,program.mem_snapshot(),PRINT);
-        CompVal val=cur_stmt.get_stmt_eval();
-
-        if(val.get_type()==V_INT)
-        {
-            std::string s=std::to_string(val.get_int_val());
-            result_div->append(QString(s.data()));
-        }
-        if(val.get_type()==V_STR)
-        {
-            result_div->append(QString(val.get_str_val().data()));
-        }
+        execCmdWrapper(PRINT,line_remain);
     }
     else
     {
-        storeCmdWrapper(cmd);
-        showProgm();
+        ErrorHandler::throwMsg(E_INV_CMD);
     }
 }
 
@@ -514,7 +546,15 @@ void Widget::showPrompt()
 
 void Widget::runCode()
 {
+    //check if program is empty
     if(buffer.empty()) return;
+
+    //check whether program has syntax error
+    if(!error_line.empty())
+    {
+        showMsgWindow("YOU HAVE TO FIX ALL SYNTAX ERROR FIRST");
+        return;
+    }
 
     //do line mapping
     actualLineToVisual();
@@ -524,7 +564,6 @@ void Widget::runCode()
     try {
         args_num=program.load_into_prog(buffer);
     }  catch (char const* s) {
-        std::cout<<s<<std::endl;
         result_div->append(QString(s));
         return;
     }
@@ -540,14 +579,14 @@ void Widget::runCode()
         connect(cmd_div,SIGNAL(returnPressed()),&loop,SLOT(quit()));
         loop.exec();
     }
+
     //run the program
     try {
         program.run(args_value);
     }
-    catch (char const* s)
-    {
-        showMsgWindow(s);
-        program.clear_program();
+    catch (RunError error)
+    { 
+        runErrorHandler(error);
         return;
     }
 
@@ -558,9 +597,31 @@ void Widget::debugCodeWrapper()
 {
     try {
         debugCode();
-    }  catch (const char* s) {
-        showMsgWindow(std::string(s));
+    }  catch (RunError error) {
+        runErrorHandler(error);
+        return;
     }
+}
+
+void Widget::runErrorHandler(RunError error)
+{
+    int error_line_num=-1;
+    int error_pc=error.get_error_pc();
+    const char* msg=error.get_error_msg();
+
+    //find error line and highlight it
+    auto iter=line_map.find(error_pc);
+    if(iter!=line_map.end())
+    {
+        error_line_num=iter->second;
+        error_line.push_back(error_line_num);
+        highlightAll(error_line,debug_line);
+
+    }
+
+    //show error msg
+    showMsgWindow(msg);
+    program.clear_program();
 }
 
 /*
@@ -569,25 +630,61 @@ void Widget::debugCodeWrapper()
 */
 void Widget::debugCode()
 {
+    //check whether program has syntax error
+    if(!error_line.empty())
+    {
+        showMsgWindow("YOU HAVE TO FIX ALL SYNTAX ERROR FIRST");
+        return;
+    }
+
+    if(buffer.empty())
+    {
+        return;
+    }
+
     //first enter debug mode
     if(cur_mode==OTHER)
     {
         //first check everything
         actualLineToVisual();
         program.clear_program();
-        program.load_into_prog(buffer);
+
         //set mode
         cur_mode=DEBUG;
         load_but->setEnabled(false);
         clear_but->setEnabled(false);
         debug_next=0;
+
+        //load program
+        int args_num;
+        try {
+            args_num=program.load_into_prog(buffer);
+        }  catch (char const* s) {
+            result_div->append(QString(s));
+            return;
+        }
+
+        //get args from cmd line
+        //todo qeventloop
+        int remain_args=args_num-args_value.size();
+        while(remain_args--)
+        {
+            showPrompt();
+            QEventLoop loop;
+            connect(cmd_div,SIGNAL(returnPressed()),&loop,SLOT(quit()));
+            loop.exec();
+        }
+
+        program.load_args_value(args_value);
+
+
         //unhighlight
-        unhighlightAll(error_highlight,debug_highlight);
-        if(!debug_highlight.empty()) debug_highlight.pop_back();
+        unhighlightAll(error_line,debug_line);
+        if(!debug_line.empty()) debug_line.pop_back();
         //push next
-        debug_highlight.push_back(debug_next);
+        debug_line.push_back(debug_next);
         //highlight
-        highlightAll(error_highlight,debug_highlight);
+        highlightAll(error_line,debug_line);
         //show tree
         showNextTree();
         return;
@@ -610,11 +707,11 @@ void Widget::debugCode()
     int actual_line=program.get_pc();
     debug_next=line_map.find(actual_line)->second;
     //unhighlight
-    unhighlightAll(error_highlight,debug_highlight);
-    if(!debug_highlight.empty()) debug_highlight.pop_back();
-    debug_highlight.push_back(debug_next);
+    unhighlightAll(error_line,debug_line);
+    if(!debug_line.empty()) debug_line.pop_back();
+    debug_line.push_back(debug_next);
     //highlight
-    highlightAll(error_highlight,debug_highlight);
+    highlightAll(error_line,debug_line);
 
 }
 
@@ -652,14 +749,14 @@ void Widget::clearProgram()
     //clear all argvs
     args_value.clear();
     //clear highlight list
-    error_highlight.clear();
-    debug_highlight.clear();
-    //reset vmline
-    //vmline=0;
+    error_line.clear();
+    debug_line.clear();
     //reset debug trace
     debug_next=0;
     //set mode
     cur_mode=OTHER;
+    //enable buttons
+    enableAllButton();
 
 }
 
@@ -681,7 +778,6 @@ void Widget::displayRltTree()
 Widget::~Widget()
 {
     delete ui;
-    delete widget;
     delete layout;
     delete code_result_layout;
     delete tree_var_layout;
@@ -695,6 +791,7 @@ Widget::~Widget()
     delete run_but;
     delete clear_but;
     delete debug_but;
+    delete widget;
 }
 
 void Widget::buffer_out()

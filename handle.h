@@ -16,6 +16,7 @@
 #define IS_CMP_OP(s) ((*s)=='='||(*s)=='>'||(*s)=='<')
 #define IS_END(s) (*(s)=='\0')
 #define IS_COMMA(s) ((*s)==',')
+#define IS_PROMPT(s) ((*s)=='?')
 #define SKIP_BLANK(s) do { \
   while(!IS_END(s) && IS_BLANK(s)) \
     (s)++; \

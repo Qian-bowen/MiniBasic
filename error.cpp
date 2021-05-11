@@ -5,13 +5,14 @@
  * DETAILED HANDLER WILL BE IMPLEMENTED WHEN PARSING
  * var cannot begin with digit
  * string cannot contain quotation inside the outer quotation
+ * expression cannot contain ' and ", delim must match
 */
 QString ErrorHandler::var="[a-zA-Z][0-9a-zA-Z]*";
 QString ErrorHandler::exp="[0-9a-zA-Z\\s+\\-*/()]+";
 QString ErrorHandler::address="[0-9]+";
 QString ErrorHandler::cmp_op="[><=]";
-QString ErrorHandler::stri="[\"\'][^\'\"]*[\"\']";
-QString ErrorHandler::printf_format_sect="(\\s*,\\s*(([\"\'][^\'\"]*[\"\'])|([a-zA-Z][0-9a-zA-Z]*)|([0-9]+)|([0-9a-zA-Z\\s+\\-*/()]+))\\s*)*";
+QString ErrorHandler::stri="(([\"][^\'\"]*[\"])|([\'][^\'\"]*[\']))";
+QString ErrorHandler::printf_format_sect="\\s*(([\"][^\'\"]*[\"])|([\'][^\'\"]*[\']))(\\s*,\\s*(([\"][^\'\"]*[\"])|([\'][^\'\"]*[\'])|([0-9]+)|([a-zA-Z][0-9a-zA-Z]*)))*";
 /*
  * throw error message
 */
@@ -40,6 +41,9 @@ void ErrorHandler::throwMsg(Error error)
     case E_INS_INPUT:
         throw("INVALID INSTRUCTION INPUT");
         break;
+    case E_INS_INPUTS:
+        throw("INVALID INSTRUCTION INPUTS");
+        break;
     case E_INS_IF:
         throw("INVALID INSTRUCTION IF");
         break;
@@ -66,6 +70,12 @@ void ErrorHandler::throwMsg(Error error)
         break;
     case E_PRO_MISS:
         throw("PROGRAM MISSING");
+        break;
+    case E_INV_CMD:
+        throw("CMD NOT EXIST");
+        break;
+    case E_ARGV_LACK:
+        throw("NEED MORE ARGVS");
         break;
     default:
         break;
@@ -97,8 +107,9 @@ bool ErrorHandler::isValidExp(StatementType type,char* str)
     }
     case PRINTF:
     {
-        QRegExp print("^\\s*"+stri+"\\s*"+printf_format_sect+"\\s*$");
-        valid=print.exactMatch(QString(str));
+        QRegExp printf("^\\s*"+printf_format_sect+"\\s*$");
+        valid=printf.exactMatch(QString(str));
+        std::cout<<"str:"<<str<<"valid prinf:"<<valid<<std::endl;
         break;
     }
     case GOTO:
@@ -156,6 +167,11 @@ Error ErrorHandler::StmtToError(StatementType stmt)
         error=E_INS_PRINT;
         break;
     }
+    case PRINTF:
+    {
+        error=E_INS_PRINTF;
+        break;
+    }
     case GOTO:
     {
         error=E_INS_GOTO;
@@ -164,6 +180,11 @@ Error ErrorHandler::StmtToError(StatementType stmt)
     case INPUT:
     {
         error=E_INS_INPUT;
+        break;
+    }
+    case INPUTS:
+    {
+        error=E_INS_INPUTS;
         break;
     }
     case END:

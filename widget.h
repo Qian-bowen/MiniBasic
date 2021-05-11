@@ -22,6 +22,7 @@
 #include <QTextBlock>
 #include <QColor>
 #include <QMessageBox>
+#include <QRegExpValidator>
 
 
 #include <iostream>
@@ -48,12 +49,18 @@ public:
     void buffer_out();//test function
 
 private:
+    void getCmd();
     void storeCmd(QString cur_line);
-    void storeCmdWrapper(QString cur_line);//with handle fault
+    void storeCmdWrapper(QString cur_line);
+    void execCmd(StatementType type,std::string cur_line);
+    void execCmdWrapper(StatementType type,std::string cur_line);
+
+
     void parseBuffer();
     void actualLineToVisual();
     void debugCode();
     CompVal parsePropmtLine(char*& prompt);
+    void runErrorHandler(RunError error);
 
     void showProgm();
     void showPrompt();
@@ -69,7 +76,7 @@ private:
 
 private slots:
     void openFile();
-    void getCmd();
+    void getCmdWrapper();
     void runCode();
     void debugCodeWrapper();
     void clearProgram();
@@ -106,8 +113,8 @@ private:
     std::unordered_map<int,int> line_map;
 
     //highlight list
-    QList<int> error_highlight;
-    QList<int> debug_highlight;
+    QList<int> error_line;
+    QList<int> debug_line;
 
     Program program;
 
