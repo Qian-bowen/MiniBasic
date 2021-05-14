@@ -26,6 +26,7 @@ public:
     bool operator==(const CompVal& cv);
     int get_int_val(){return v_int;};
     std::string get_str_val(){return v_str;};
+    std::string get_val(){return v_type==V_STR?v_str:std::to_string(v_int);}
 };
 
 

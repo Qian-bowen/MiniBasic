@@ -2,15 +2,25 @@
 
 void Memory::mem_add(std::string var,CompVal val)
 {
-    auto tmp=std::pair<std::string,CompVal>(var,val);
-    memory.insert(tmp);
+    auto search=memory.find(var);
+    if(search==memory.end())
+    {
+        auto tmp=std::pair<std::string,CompVal>(var,val);
+        memory.insert(tmp);
+    }
+    else
+    {
+        search->second=val;
+        //std::cout<<"mem replace int:"<<search->first<<"  "<<val.get_int_val()<<std::endl;
+    }
+
 }
 
-void Memory::mem_replace(std::string var,CompVal val)
-{
-    auto search=memory.find(var);
-    search->second=val;
-}
+//void Memory::mem_replace(std::string var,CompVal val)
+//{
+//    auto search=memory.find(var);
+//    search->second=val;
+//}
 
 /*
 search variable in memory

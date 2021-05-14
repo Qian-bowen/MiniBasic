@@ -43,17 +43,7 @@ CompVal LetStmt::get_stmt_eval()
     std::string lv(left_var);
 
     //save to mem ,if var exists just change the value
-    if(!mem->mem_search(lv,V_INT)&&
-            !mem->mem_search(lv,V_STR))
-    {
-        mem->mem_add(lv,val);
-    }
-    else
-    {
-        mem->mem_replace(lv,val);
-    }
-
-
+    mem->mem_add(lv,val);
     return val;
 }
 
@@ -115,6 +105,7 @@ std::string PrintfStmt::get_stmt_tree()
 */
 void PrintfStmt::get_var_name(char*& v)
 {
+    val_array.clear();
     char* str;
     char* str_row;
     argv_num=0;
@@ -170,6 +161,7 @@ void PrintfStmt::get_var_name(char*& v)
         else if(val.get_type()==V_INT)
             tmp_str=std::to_string(val.get_int_val());
         size_t pos=row_string.find('{');
+        std::cout<<"tmp str:"<<tmp_str<<std::endl;
         row_string=row_string.replace(pos,2,tmp_str);
     }
 

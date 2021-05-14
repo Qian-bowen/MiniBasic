@@ -1,5 +1,11 @@
 #include "program.h"
 
+Program::Program(QObject* parent)
+    :QObject(parent)
+{
+
+}
+
 void Program::reset_program()
 {
     //clear mem
@@ -8,9 +14,6 @@ void Program::reset_program()
     prog.clear();
     //clear argument
     argvs.clear();
-    //reset buffer
-    result_buf="";
-    tree_buf="";
     //reset args num
     args_iter=0;
 }
@@ -20,6 +23,8 @@ std::map<int,Statement*>::iterator Program::exec_one_statement(int cur_pc)
     auto it=prog.find(cur_pc);
     if(it==prog.end()) ErrorHandler::throwMsg(E_IVD_ADDR);
 
+    auto pre_it=it;
+
     StatementType t=it->second->get_type();
     //if meet end ,return the sign of end
     switch(t)
@@ -28,25 +33,8 @@ std::map<int,Statement*>::iterator Program::exec_one_statement(int cur_pc)
         it->second->get_stmt_eval();
         break;
     case PRINT:
-    {
-        CompVal result=it->second->get_stmt_eval();
-        if(result.get_type()==V_INT)
-        {
-            result_buf+=std::to_string(result.get_int_val())+'\n';
-        }
-        else if(result.get_type()==V_STR)
-        {
-            result_buf+=result.get_str_val()+'\n';
-        }
-        break;
-    }
     case PRINTF:
-    {
-        char* result;
-        it->second->get_var_name(result);
-        result_buf+=std::string(result)+'\n';
         break;
-    }
     case REM:
         break;
     case IF:
@@ -56,11 +44,6 @@ std::map<int,Statement*>::iterator Program::exec_one_statement(int cur_pc)
         break;
     case INPUT:
     case INPUTS:
-        //put sth into mem
-        char* var_name;
-        it->second->get_var_name(var_name);
-        mem.mem_add(var_name,argvs[args_iter]);
-        ++args_iter;
         break;
     case END:
         return prog.end();
@@ -84,27 +67,73 @@ std::map<int,Statement*>::iterator Program::exec_one_statement(int cur_pc)
     //set pc and cc
     stat->cc=false;
     stat->pc=it->first;
+
+    //std::cout<<"set pc:"<<stat->pc<<std::endl;
+
+
+    if(t==INPUT||t==INPUTS)
+    {
+        char* input_var_name;
+        pre_it->second->get_var_name(input_var_name);
+        emit get_input(input_var_name);
+        //suspend program
+        throw(STALL);
+    }
+    else if(t==PRINT)
+    {
+        CompVal result=pre_it->second->get_stmt_eval();
+        if(result.get_type()==V_INT)
+        {
+            emit result_print(std::to_string(result.get_int_val()));
+        }
+        else if(result.get_type()==V_STR)
+        {
+            emit result_print(result.get_str_val());
+        }
+    }
+    else if(t==PRINTF)
+    {
+        char* printf_result;
+        pre_it->second->get_var_name(printf_result);
+        emit result_print(std::string(printf_result));
+    }
+
     return it;
 }
 
-void Program::load_args_value(std::vector<CompVal> args_value)
+/*
+ * according to mode eo exe run
+*/
+bool Program::runWrapper(Mode mode)
 {
-    argvs=args_value;
+    if(mode==RUN)
+    {
+        run();
+    }
+    else if(mode==DEBUG)
+    {
+        return run_one_step();
+    }
+    return false;
 }
 
-void Program::run(std::vector<CompVal> args_value)
+void Program::run()
 {
-    load_args_value(args_value);
-
-    auto it=prog.begin();
+    std::cout<<"run program"<<std::endl;
+    //run from current pc
+    auto it=prog.find(stat->pc);
     while(it!=prog.end())
     {
         int cur_pc=stat->pc;
         try {
+            //std::cout<<"cur stmt:"<<(*it).first<<std::endl;
             it=exec_one_statement(stat->pc);
         }  catch (const char* msg) {
             RunError runError(cur_pc,msg);
             throw(runError);
+        }catch(PROG_MODE mode){
+            if(mode==STALL)
+                return;
         }
     }
 
@@ -126,6 +155,9 @@ bool Program::run_one_step()
     }  catch (const char* msg) {
         RunError runError(cur_pc,msg);
         throw(runError);
+    }   catch(PROG_MODE mode){
+        if(mode==STALL)
+            return true;
     }
 
     if(it==prog.end())
@@ -171,11 +203,11 @@ int Program::load_into_prog(QList<Line> buffer)
             break;
         case INPUT:
             s=new InputStmt((*it).content,&mem,cur_type);
-            ++args_num;
+            //++args_num;
             break;
         case INPUTS:
             s=new InputsStmt((*it).content,&mem,cur_type);
-            ++args_num;
+            //++args_num;
             break;
         default:
             break;
@@ -184,7 +216,7 @@ int Program::load_into_prog(QList<Line> buffer)
         prog.insert(std::pair<int,Statement*>((*it).num,s));
 
         std::string line_num=std::to_string((*it).num);
-        tree_buf+=line_num+' '+s->get_stmt_tree()+'\n';
+        emit tree_print(line_num+' '+s->get_stmt_tree()+'\n');
     }
 
     //init stat
@@ -195,12 +227,7 @@ int Program::load_into_prog(QList<Line> buffer)
 
 void Program::mem_add_prog(std::string var,CompVal val)
 {
-    if(mem.mem_search(var,val.get_type()))
-    {
-        mem.mem_replace(var,val);
-    }
-    else
-        mem.mem_add(var,val);
+    mem.mem_add(var,val);
 }
 
 bool Program::get_mem_value(std::string var,CompVal& val)

@@ -1,9 +1,14 @@
 #ifndef TYPE_H
 #define TYPE_H
+
 /*
  * minibasic mode
 */
-enum Mode{DEBUG,OTHER};
+enum PROG_MODE{STALL};
+/*
+ * minibasic mode
+*/
+enum Mode{RUN,DEBUG,OTHER};
 /*
  * Statement type
 */

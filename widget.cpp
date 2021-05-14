@@ -72,10 +72,25 @@ Widget::Widget(QWidget *parent)
     connect(clear_but,SIGNAL(clicked()),this,SLOT(clearProgram()));
     connect(cmd_div,SIGNAL(returnPressed()),this,SLOT(getCmdWrapper()));
     connect(cmd_div,SIGNAL(returnPressed()),cmd_div,SLOT(clear()));
-    connect(this,SIGNAL(run_complete()),this,SLOT(displayRltTree()));
     connect(this,SIGNAL(debug_complete()),this,SLOT(finishDebug()));
-    connect(this,SIGNAL(run_complete()),this,SLOT(enableAllButton()));
-    connect(this,SIGNAL(debug_complete()),this,SLOT(enableAllButton()));
+    connect(this,SIGNAL(run_complete()),this,SLOT(finishRun()));
+    connect(this,SIGNAL(debug_complete()),this,SLOT(finishRun()));
+
+    connect(&program,SIGNAL(get_input(std::string)),this,SLOT(handle_input(std::string)));
+    connect(&program,SIGNAL(result_print(std::string)),this,SLOT(result_print(std::string)));
+    connect(&program,SIGNAL(tree_print(std::string)),this,SLOT(tree_print(std::string)));
+
+    connect(this,SIGNAL(run_program(Mode)),&program,SLOT(runWrapper(Mode)));
+}
+
+void Widget::result_print(std::string result)
+{
+    result_div->append(QString(result.data()));
+}
+
+void Widget::tree_print(std::string tree)
+{
+    tree_div->append(QString(tree.data()));
 }
 
 void Widget::highlightLine(int line,QColor color,QList<QTextEdit::ExtraSelection>& extras)
@@ -137,18 +152,26 @@ CompVal Widget::parsePropmtLine(char*& str)
             int val;
             parse_digit(str,val);
             res=CompVal(val);
-            std::cout<<"int val:"<<res.get_int_val()<<std::endl;
-            args_value.push_back(res);
         }
         else if(IS_STR_DELIM(str))
         {
             char* val;
             parse_string(str,val);
             res=CompVal(std::string(val));
-            args_value.push_back(res);
         }
     }
     return res;
+}
+
+
+
+void Widget::handle_input(std::string var_name)
+{
+    cmd_input_name=var_name;
+    showPrompt();
+    QEventLoop loop;
+    connect(cmd_div,SIGNAL(returnPressed()),&loop,SLOT(quit()));
+    loop.exec();
 }
 
 
@@ -170,6 +193,8 @@ void Widget::storeCmd(QString cur_line)
         {
             program.mem_add_prog(cmd_input_name,res);
             cmd_input_name="";
+            //run program after input
+            emit run_program(cur_mode);
         }
         return;
     }
@@ -327,13 +352,12 @@ void Widget::showSnapshot()
     var_div->setText(var_buf);
 }
 
-void Widget::showResult()
-{
-    QString result_buf;
-    result_buf=QString(program.get_result_buf().data());
-    result_div->clear();
-    result_div->setText(result_buf);
-}
+//void Widget::showResult()
+//{
+//    QString result_buf;
+//    result_div->clear();
+//    result_div->setText(result_buf);
+//}
 
 void Widget::showNextTree()
 {
@@ -556,33 +580,22 @@ void Widget::runCode()
         return;
     }
 
+    //set run mode
+    cur_mode=RUN;
+
     //do line mapping
     actualLineToVisual();
 
-    //input args variables
-    int args_num;
     try {
-        args_num=program.load_into_prog(buffer);
+        program.load_into_prog(buffer);
     }  catch (char const* s) {
         result_div->append(QString(s));
         return;
     }
 
-
-    //get args from cmd line
-    //todo qeventloop
-    int remain_args=args_num-args_value.size();
-    while(remain_args--)
-    {
-        showPrompt();
-        QEventLoop loop;
-        connect(cmd_div,SIGNAL(returnPressed()),&loop,SLOT(quit()));
-        loop.exec();
-    }
-
     //run the program
     try {
-        program.run(args_value);
+        program.runWrapper(cur_mode);
     }
     catch (RunError error)
     { 
@@ -643,7 +656,7 @@ void Widget::debugCode()
     }
 
     //first enter debug mode
-    if(cur_mode==OTHER)
+    if(cur_mode!=DEBUG)
     {
         //first check everything
         actualLineToVisual();
@@ -656,26 +669,12 @@ void Widget::debugCode()
         debug_next=0;
 
         //load program
-        int args_num;
         try {
-            args_num=program.load_into_prog(buffer);
+            program.load_into_prog(buffer);
         }  catch (char const* s) {
             result_div->append(QString(s));
             return;
         }
-
-        //get args from cmd line
-        //todo qeventloop
-        int remain_args=args_num-args_value.size();
-        while(remain_args--)
-        {
-            showPrompt();
-            QEventLoop loop;
-            connect(cmd_div,SIGNAL(returnPressed()),&loop,SLOT(quit()));
-            loop.exec();
-        }
-
-        program.load_args_value(args_value);
 
 
         //unhighlight
@@ -691,9 +690,8 @@ void Widget::debugCode()
     }
 
     //run current statement
-    bool is_end=program.run_one_step();
+    bool is_end=program.runWrapper(cur_mode);
     showSnapshot();
-    showResult();
 
     //if nothing left,return
     if(!is_end)
@@ -721,8 +719,11 @@ void Widget::finishDebug()
     showMsgWindow("finish debug");
 }
 
-void Widget::enableAllButton()
+void Widget::finishRun()
 {
+    //set mode
+    cur_mode=OTHER;
+    //enable all button
     load_but->setEnabled(true);
     clear_but->setEnabled(true);
     debug_but->setEnabled(true);
@@ -746,8 +747,6 @@ void Widget::clearProgram()
     buffer.clear();
     //clear line map
     line_map.clear();
-    //clear all argvs
-    args_value.clear();
     //clear highlight list
     error_line.clear();
     debug_line.clear();
@@ -756,7 +755,7 @@ void Widget::clearProgram()
     //set mode
     cur_mode=OTHER;
     //enable buttons
-    enableAllButton();
+    finishRun();
 
 }
 
@@ -764,14 +763,10 @@ void Widget::displayRltTree()
 {
     QString result_buf,tree_buf,var_buf;
 
-    result_buf=QString(program.get_result_buf().data());
-    tree_buf=QString(program.get_tree_buf().data());
     var_buf=QString(program.prog_snapshot().data());
     result_div->clear();
     tree_div->clear();
     var_div->clear();
-    result_div->setText(result_buf);
-    tree_div->setText(tree_buf);
     var_div->setText(var_buf);
 }
 
