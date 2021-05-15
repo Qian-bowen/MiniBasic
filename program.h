@@ -29,7 +29,7 @@ private:
     bool run_one_step();
 
 signals:
-    void get_input(std::string var_name);
+    void get_input(std::string var_name,StatementType type);
     void result_print(std::string result);
     void tree_print(std::string tree);
 

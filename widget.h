@@ -66,7 +66,6 @@ private:
     void showProgm();
     void showPrompt();
     void showSnapshot();
-    //void showResult();
     void showNextTree();
     void showMsgWindow(std::string str_msg);
 
@@ -75,6 +74,8 @@ private:
     void highlightAll(QList<int>& error_hlt,QList<int>& debug_highlight);
     void unhighlightAll(QList<int>& error_hlt,QList<int>& debug_highlight);
 
+
+
 private slots:
     void openFile();
     void getCmdWrapper();
@@ -82,10 +83,10 @@ private slots:
     void debugCodeWrapper();
     void clearProgram();
     void finishDebug();
-    void displayRltTree();
     void finishRun();
+    void handlePrompt();
 
-    void handle_input(std::string var_name);
+    void handle_input(std::string var_name,StatementType type);
     void result_print(std::string result);
     void tree_print(std::string tree);
 
@@ -93,8 +94,8 @@ signals:
     void run_program(Mode mode);
     void run_complete();
     void debug_complete();
-
     void finish_input();
+    void input_again();
 
 private:
     //ui component
@@ -127,6 +128,7 @@ private:
     Program program;
 
     std::string cmd_input_name="";
+    StatementType input_type;
 
 
 

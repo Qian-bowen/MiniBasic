@@ -32,18 +32,8 @@ std::map<int,Statement*>::iterator Program::exec_one_statement(int cur_pc)
     case LET:
         it->second->get_stmt_eval();
         break;
-    case PRINT:
-    case PRINTF:
-        break;
-    case REM:
-        break;
     case IF:
         it->second->get_stmt_eval();
-        break;
-    case GOTO:
-        break;
-    case INPUT:
-    case INPUTS:
         break;
     case END:
         return prog.end();
@@ -75,7 +65,7 @@ std::map<int,Statement*>::iterator Program::exec_one_statement(int cur_pc)
     {
         char* input_var_name;
         pre_it->second->get_var_name(input_var_name);
-        emit get_input(input_var_name);
+        emit get_input(input_var_name,t);
         //suspend program
         throw(STALL);
     }
@@ -114,19 +104,17 @@ bool Program::runWrapper(Mode mode)
     {
         return run_one_step();
     }
-    return false;
+    return true;
 }
 
 void Program::run()
 {
-    std::cout<<"run program"<<std::endl;
     //run from current pc
     auto it=prog.find(stat->pc);
     while(it!=prog.end())
     {
         int cur_pc=stat->pc;
         try {
-            //std::cout<<"cur stmt:"<<(*it).first<<std::endl;
             it=exec_one_statement(stat->pc);
         }  catch (const char* msg) {
             RunError runError(cur_pc,msg);

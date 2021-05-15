@@ -14,6 +14,7 @@ class ErrorHandler{
     static QString stri;
     static QString cmp_op;
     static QString printf_format_sect;
+    static QString prompt_line;
 
 public:
     static void throwMsg(Error error);

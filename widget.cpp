@@ -75,8 +75,9 @@ Widget::Widget(QWidget *parent)
     connect(this,SIGNAL(debug_complete()),this,SLOT(finishDebug()));
     connect(this,SIGNAL(run_complete()),this,SLOT(finishRun()));
     connect(this,SIGNAL(debug_complete()),this,SLOT(finishRun()));
+    connect(this,SIGNAL(input_again()),this,SLOT(handlePrompt()));
 
-    connect(&program,SIGNAL(get_input(std::string)),this,SLOT(handle_input(std::string)));
+    connect(&program,SIGNAL(get_input(std::string,StatementType)),this,SLOT(handle_input(std::string,StatementType)));
     connect(&program,SIGNAL(result_print(std::string)),this,SLOT(result_print(std::string)));
     connect(&program,SIGNAL(tree_print(std::string)),this,SLOT(tree_print(std::string)));
 
@@ -147,7 +148,7 @@ CompVal Widget::parsePropmtLine(char*& str)
     {
         str++;
         SKIP_BLANK(str);
-        if(IS_DIGIT(str))
+        if(IS_DIGIT(str)||*str=='-')
         {
             int val;
             parse_digit(str,val);
@@ -165,9 +166,15 @@ CompVal Widget::parsePropmtLine(char*& str)
 
 
 
-void Widget::handle_input(std::string var_name)
+void Widget::handle_input(std::string var_name,StatementType type)
 {
     cmd_input_name=var_name;
+    input_type=type;
+    handlePrompt();
+}
+
+void Widget::handlePrompt()
+{
     showPrompt();
     QEventLoop loop;
     connect(cmd_div,SIGNAL(returnPressed()),&loop,SLOT(quit()));
@@ -188,13 +195,29 @@ void Widget::storeCmd(QString cur_line)
     //handle prompt
     if(IS_PROMPT(str))
     {
+        //check prompt line valid
+        if(!ErrorHandler::isValidExp(PROMPT,str))
+        {
+            showMsgWindow("INVALID PROMPT");
+            emit input_again();
+            return;
+        }
+
+        //parse prompt
         CompVal res=parsePropmtLine(str);
-        if(cmd_input_name!="")
+        if(cmd_input_name!=""
+                &&((res.get_type()==V_INT&&input_type==INPUT)||(res.get_type()==V_STR&&input_type==INPUTS)))
         {
             program.mem_add_prog(cmd_input_name,res);
             cmd_input_name="";
             //run program after input
             emit run_program(cur_mode);
+        }
+        else
+        {
+            showMsgWindow("INVALID INPUT(S) TYPE");
+            emit input_again();
+            return;
         }
         return;
     }
@@ -301,6 +324,7 @@ void Widget::storeCmdWrapper(QString cur_line)
         storeCmd(cur_line);
     }  catch (const char* s) {
         result_div->append(QString(s));
+        showMsgWindow(s);
         return;
     }
 }
@@ -351,13 +375,6 @@ void Widget::showSnapshot()
     var_div->clear();
     var_div->setText(var_buf);
 }
-
-//void Widget::showResult()
-//{
-//    QString result_buf;
-//    result_div->clear();
-//    result_div->setText(result_buf);
-//}
 
 void Widget::showNextTree()
 {
@@ -586,11 +603,15 @@ void Widget::runCode()
     //do line mapping
     actualLineToVisual();
 
-    try {
-        program.load_into_prog(buffer);
-    }  catch (char const* s) {
-        result_div->append(QString(s));
-        return;
+    //if program buffer empty ,load buffer
+    if(program.is_program_empty())
+    {
+        try {
+            program.load_into_prog(buffer);
+        }  catch (char const* s) {
+            result_div->append(QString(s));
+            return;
+        }
     }
 
     //run the program
@@ -723,7 +744,9 @@ void Widget::finishRun()
 {
     //set mode
     cur_mode=OTHER;
-    //enable all button
+    //show program snapshot
+    showSnapshot();
+    //enable buttons
     load_but->setEnabled(true);
     clear_but->setEnabled(true);
     debug_but->setEnabled(true);
@@ -755,19 +778,11 @@ void Widget::clearProgram()
     //set mode
     cur_mode=OTHER;
     //enable buttons
-    finishRun();
+    load_but->setEnabled(true);
+    clear_but->setEnabled(true);
+    debug_but->setEnabled(true);
+    run_but->setEnabled(true);
 
-}
-
-void Widget::displayRltTree()
-{
-    QString result_buf,tree_buf,var_buf;
-
-    var_buf=QString(program.prog_snapshot().data());
-    result_div->clear();
-    tree_div->clear();
-    var_div->clear();
-    var_div->setText(var_buf);
 }
 
 Widget::~Widget()

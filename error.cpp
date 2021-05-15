@@ -13,6 +13,7 @@ QString ErrorHandler::address="[0-9]+";
 QString ErrorHandler::cmp_op="[><=]";
 QString ErrorHandler::stri="(([\"][^\'\"]*[\"])|([\'][^\'\"]*[\']))";
 QString ErrorHandler::printf_format_sect="\\s*(([\"][^\'\"]*[\"])|([\'][^\'\"]*[\']))(\\s*,\\s*(([\"][^\'\"]*[\"])|([\'][^\'\"]*[\'])|([0-9]+)|([a-zA-Z][0-9a-zA-Z]*)))*";
+QString ErrorHandler::prompt_line="\\?\\s*((\\-?[0-9]+)||(([\"][^\'\"]*[\"])|([\'][^\'\"]*[\'])))";
 /*
  * throw error message
 */
@@ -77,6 +78,12 @@ void ErrorHandler::throwMsg(Error error)
     case E_ARGV_LACK:
         throw("NEED MORE ARGVS");
         break;
+    case E_PROMPT:
+        throw("INVALID PROMPT INPUT");
+        break;
+    case E_INPUT_TYPE:
+        throw("INVALID INPUT(S) TYPE");
+        break;
     default:
         break;
     }
@@ -136,6 +143,12 @@ bool ErrorHandler::isValidExp(StatementType type,char* str)
     {
         QRegExp input("^\\s*"+var+"\\s*$");
         valid=input.exactMatch(QString(str));
+        break;
+    }
+    case PROMPT:
+    {
+        QRegExp prompt("^\\s*"+prompt_line+"\\s*$");
+        valid=prompt.exactMatch(QString(str));
         break;
     }
     default:
