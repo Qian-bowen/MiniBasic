@@ -1,5 +1,15 @@
 # README
 
+## MiniBasic
+
+A simple interpretor of Basic with GUI
+
+You can edit your program or load it in this interpretor.
+
+Debug is also supported.
+
+
+
 ## 关于错误处理的一些说明
 
 * 错误分为：**语法错误**、**运行时错误**、**命令行错误**
